@@ -64,19 +64,19 @@ effekta_Ready($)
 
 	my $name = $hash->{NAME};
 	my $ret;
-	if(DevIo_IsOpen($hash)){
-		Log3($name,1, "effekta_Ready Device is open");
-		return "device already open";
-	} else {
-		Log3($name,1, "effekta_Ready  Device is closed, trying to open");
-		$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
-		while(!DevIo_IsOpen($hash)){
-			Log3($name,1, "effekta_Ready  Device is closed, opening failed, retrying");
-			$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
-			sleep 1;
-		}
-		return "device automatically opened $ret";
-	}
+#	if(DevIo_IsOpen($hash)){
+#		Log3($name,1, "effekta_Ready Device is open");
+#		return "device already open";
+#	} else {
+#		Log3($name,1, "effekta_Ready  Device is closed, trying to open");
+	$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
+#		while(!DevIo_IsOpen($hash)){
+#			Log3($name,1, "effekta_Ready  Device is closed, opening failed, retrying");
+#			$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
+#			sleep 1;
+#		}
+#		return "device automatically opened $ret";
+#	}
 }
 
 
@@ -144,6 +144,10 @@ sub effekta_Get($@){
 }
 #####################################
 sub effekta_updateReadings($){
+
+	my ($hash, @a) = @_;
+	my $name = $hash->{NAME};
+	my $key;
 	my $QPIRI = "5150495249f8540d"; ## Device rating information Inquiry
 	my $QPIGS = "5150494753b7a90d"; ## Device general Status parameters inquiry
 	my $QMOD = "514d4f4449c10d"; ## Device Mode inquiry
