@@ -142,6 +142,24 @@ sub effekta_Get($@){
 
 }
 #####################################
+sub effekta_updateReadings($){
+	my $QPIRI = "5150495249f8540d"; ## Device rating information Inquiry
+	my $QPIGS = "5150494753b7a90d"; ## Device general Status parameters inquiry
+	my $QMOD = "514d4f4449c10d"; ## Device Mode inquiry
+	my $QPIWS = "5150495753b4da0d"; ##Device Warning Status inquiry
+	my $QPGS0 = "51504753303fda0d";## Parallel Information inquiry
+	my $QSID = "51534944bb050d"; ## nicht dokumentiert
+	my $QBEQI = "51424851492ea90d"; 
+	my $QVFW = "5156465732c3f50d";
+	my $QDI = "514449711b0d";
+	my $QFLAG = "51464c414798740d";
+	my $QBEGI = "51424551492ea90d"; 
+	my $QMUCHGCR = "514d55434847435226340d"; ## Setting utility max charge current
+	my $QMCHGC = "514d4348474352d8550d"; ## Setting Max Charge Current
+}
+
+
+#####################################
 sub effekta_write($){
 
   my ($hash, $name) = @_;
