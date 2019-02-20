@@ -127,19 +127,20 @@ sub effekta_Get($@){
 	Log3($name,1, "effekta argument fragezeichen");
 	return $usage;
 	}
-	if(DevIo_IsOpen($hash)){
-		Log3($name,1, "effekta Device is open");
-		my $get_cmd = lc($a[1]);
-		Log3($name,1, "effekta jetzt wird geschrieben");
-		DevIo_SimpleWrite($hash,"515049beac0d",1);
-		my $data = DevIo_SimpleRead($hash);
-		return $data;
-	} else {
-		Log3($name,1, "effekta Device is closed ");
-		return;
-	}
-##	my @values:
 
+#	if(DevIo_IsOpen($hash)){
+#		Log3($name,1, "effekta Device is open");
+#		my $get_cmd = lc($a[1]);
+#		Log3($name,1, "effekta jetzt wird geschrieben");
+#		DevIo_SimpleWrite($hash,"515049beac0d",1);
+#		##my $data = DevIo_SimpleRead($hash);
+#		return;
+#	} else {
+#		Log3($name,1, "effekta Device is closed ");
+#		return;
+#	}
+
+	effekta_updateReadings($hash);
 }
 #####################################
 sub effekta_updateReadings($){
@@ -156,6 +157,30 @@ sub effekta_updateReadings($){
 	my $QBEGI = "51424551492ea90d"; 
 	my $QMUCHGCR = "514d55434847435226340d"; ## Setting utility max charge current
 	my $QMCHGC = "514d4348474352d8550d"; ## Setting Max Charge Current
+	
+
+my %requests = (
+	'QPIRI' => "5150495249f8540d",
+	'QPIGS' => "5150494753b7a90d",
+	'QMOD' => "514d4f4449c10d",
+	'QPIWS' => "5150495753b4da0d",
+	'QPGS0' => "51504753303fda0d",
+	'QSID' => "51534944bb050d",
+	'QBEQI' => "51424851492ea90d", 
+	'QVFW' => "5156465732c3f50d",
+	'QDI' => "514449711b0d",
+	'QFLAG' => "51464c414798740d",
+	'QBEGI' => "51424551492ea90d", 
+	'QMUCHGCR' => "514d55434847435226340d",
+	'QMCHGC' => "514d4348474352d8550d"
+	);
+	
+	foreach $key (keys %requests)
+	{	
+	DevIo_SimpleWrite($hash,$requests{$key},1);
+	my $buf = DevIo_SimpleRead($hash);
+	readingsSingeUpdate($hash,$key,$buf);
+	}
 }
 
 
