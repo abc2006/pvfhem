@@ -121,12 +121,13 @@ sub effekta_Set($@){
 sub effekta_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of qpi:noArg"; 
+	my $usage = "Unknown argument $a[1], choose one of qpi:noArg update:all,qpiri,qmod"; 
 	Log3($name,1, "effekta argument $a[1]");
   	if ($a[1] eq "?"){
 	Log3($name,1, "effekta argument fragezeichen");
 	return $usage;
 	}
+	if($a[1] eq "update") { effekta_updateReadings($hash, $a[2]); }
 
 #	if(DevIo_IsOpen($hash)){
 #		Log3($name,1, "effekta Device is open");
@@ -140,12 +141,12 @@ sub effekta_Get($@){
 #		return;
 #	}
 
-	effekta_updateReadings($hash);
+#	effekta_updateReadings($hash);
 }
 #####################################
-sub effekta_updateReadings($){
+sub effekta_updateReadings($$){
 
-	my ($hash, @a) = @_;
+	my ($hash, $order) = @_;
 	my $name = $hash->{NAME};
 	my $key;
 	my $QPIRI = "5150495249f8540d"; ## Device rating information Inquiry
@@ -178,12 +179,17 @@ my %requests = (
 	'QMUCHGCR' => "514d55434847435226340d",
 	'QMCHGC' => "514d4348474352d8550d"
 	);
-	
-	foreach $key (keys %requests)
-	{	
-	DevIo_SimpleWrite($hash,$requests{$key},1);
-	my $buf = DevIo_SimpleRead($hash);
-	readingsSingeUpdate($hash,$key,$buf);
+
+	if ($order eq "all"){	
+		foreach $key (keys %requests)
+		{	
+		DevIo_SimpleWrite($hash,$requests{$key},1);
+		my $buf = DevIo_SimpleRead($hash);
+		readingsSingeUpdate($hash,$key,$buf);
+		}
+	}elsif ($order eq "qpiri"){
+		$hash->{helper}{lastreq} = "qpiri";
+		DevIo_SimpleWrite($hash,$QPIRI,1);
 	}
 }
 
@@ -205,15 +211,58 @@ sub effekta_Read($$)
 	
 	Log3($name,1, "effekta jetzt wird gelesen");
 	# read from serial device
-	my $buf = DevIo_SimpleRead($hash);
-	readingsSingleUpdate($hash,"inputdata",$buf,1);
+	#
 	
-	if(!defined($buf) || $buf eq ""){
-	# wird beim versuch, Daten zu lesen, eine geschlossene Verbindung erkannt, wird *undef* zurückgegeben. Es erfolgt ein neuer Verbindungsversuch?
-	Log3($name,1, "effekta SimpleRead fehlgeschlagen, was soll ich jetzt tun?");
-
-	return "";
+        my $buf =  DevIo_SimpleRead($hash);
+	Log3($name,1, "effekta buffer: $buf");
+	if (!defined($buf)  || $buf eq "")
+	{ 
+		
+		Log3($name,1, "effekta Fehler beim lesen");
+		return "error" ;
 	}
+ 	# es geht los mit einem ( und hört auf mit 0d - eigentlich.	
+	$hash->{helper}{recv} .= $buf; 
+	
+	Log3($name,1, "effekta helper: $hash->{helper}{recv} "); 
+	my $hexstring = unpack ('H*', $hash->{helper}{recv});
+
+	Log3($name,1, "effekta hexstring: $hexstring");
+	my $begin = substr($hexstring,0,2); ## die ersten zwei Zeichen
+	Log3($name,1, "effekta begin: $begin");
+	my $end = substr($hexstring,-2);# die letzten zwei Zeichen
+	Log3($name,1, "effekta end: $end");
+	if ($begin =~ "28" && $end eq "0d") {
+		my $asciistring = $hash->{helper}{recv};
+		my $value = substr($hexstring,2,length($hexstring)-6);
+		my @var = split(/20/,$value);
+
+		readingsSingleUpdate($hash,"hexstring",$value,1);
+		my $result;
+		foreach (@var)
+		{
+		my $zahl;
+			if($_ =~ /2e/)
+			{
+				my ($vor,$nach) = split(/2e/,$_);
+				$zahl = hex($vor) . "." . hex($nach);
+			} else {
+				$zahl = hex($_);
+			}
+		$result .= "_" . $zahl;
+		}
+		
+		Log3($name,1, "effekta value: @var");
+		##my $ascii = hex($value); geht nicht ...
+		readingsSingleUpdate($hash,$hash->{helper}{lastreq},$result,1);
+		$hash->{helper}{recv} = "";
+
+	} else {
+	$begin = "";
+	$end="";
+	}	
+	return "";
+	
 	
 }
 
