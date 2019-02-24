@@ -19,7 +19,7 @@ effekta_Initialize($)
   $hash->{UndefFn}   = "effekta_Undef";
   $hash->{ReadFn}    = "effekta_Read";
   $hash->{ReadyFn}    = "effekta_Ready";
-  $hash->{AttrList}  = "Anschluss ".
+  $hash->{AttrList}  = "Interval Anschluss ".
                         $readingFnAttributes;
 
 }
@@ -45,11 +45,9 @@ if(@a < 3 || @a > 5){
 #close connection if maybe open (on definition modify)
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "effekta_DoInit" );
-  Log3($name, 1, "effekta DevIO_OpenDev_Define $ret"); 
-  effekta_nb_doInternalUpdate($hash);
+  Log3($name, 1, "effekta DevIO_OpenDev_Define $ret" . __LINE__); 
+#	InternalTimer(gettimeofday()+30,"effekta_nb_doInternalUpdate",$hash);
   return $ret;
-
-
 }
 
 
@@ -96,39 +94,29 @@ sub effekta_Undef($$)
 sub effekta_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of reopen:noArg interval"; 
+	my $usage = "Unknown argument $a[1], choose one of reopen:noArg stopRequest"; 
 	my $ret;
 	my $minInterval = 30;
-	Log3($name,1, "effekta argument $a[1]");
+	Log3($name,1, "effekta argument $a[1] _Line: __LINE__" . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,1, "effekta argument fragezeichen");
+	Log3($name,1, "effekta argument fragezeichen" . __LINE__);
 	return $usage;
 	}
 	if($a[1] eq "reopen"){
 		if(DevIo_IsOpen($hash)){
 			DevIo_CloseDev($hash);
-			Log3($name,1, "effekta Device closed");
+			Log3($name,1, "effekta Device closed" . __LINE__);
 		} 
-		Log3($name,1, "effekta_Set  Device is closed, trying to open");
+		Log3($name,1, "effekta_Set  Device is closed, trying to open" . __LINE__);
 		$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
 		while(!DevIo_IsOpen($hash)){
-			Log3($name,1, "effekta_Set  Device is closed, opening failed, retrying");
+			Log3($name,1, "effekta_Set  Device is closed, opening failed, retrying" . __LINE__);
 			$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
 			sleep 1;
 		}
 		return "device opened $ret";
-	} elsif ($a[1] eq "interval")
-	{	
-		if($a[2] =~ m/^\d+$/ && $a[2] > $minInterval){
-			Log3($name,3, "Interval changed to $a[2]");
-			$hash->{INTERVAL} = $a[2];
-		} else {
-
-			Log3($name,3, "Interval changed to $minInterval";
-			$hash->{INTERVAL} = $minInterval;
-			return "Interval-Value too small, changed to minimum ($minInterval)";
-		}			
-		#	readingsSingleUpdate($hash,"Interval",$a[2],1);
+	}  elsif ($a[1] eq "stopRequest"){
+		$hash->{helper}{recv_finished} = 1;
 	}
 	
 }
@@ -136,24 +124,34 @@ sub effekta_Set($@){
 sub effekta_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of update:QMOD,QPIRI,QPIGS"; 
-	Log3($name,1, "effekta argument $a[1]");
+	my $usage = "Unknown argument $a[1], choose one of updateNb updateBlk"; 
+	Log3($name,1, "effekta argument $a[1]_Line: " . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,1, "effekta argument fragezeichen");
+	Log3($name,1, "effekta argument fragezeichen_Line: " . __LINE__);
 	return $usage;
 	}
-	if($a[1] eq "update") { effekta_updateReadings($hash, $a[2]); }
+	if($a[1] eq "updateNb") { 
+  		effekta_nb_doInternalUpdate($hash);
+	}elsif($a[1] eq "updateBlk") { 
+		effekta_blck_doInternalUpdate($hash);
+		#effekta_nb_doInternalUpdate($hash);
+	}
 }
 #####################################
 sub effekta_nb_doInternalUpdate($){
 	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	my $interval = AttrVal($name,"Interval",undef);
+	$interval = 60 unless(defined($interval));
+
 	$hash->{helper}{RUNNING_PID} = BlockingCall("blck_doInternalUpdate",$hash) unless(exists($hash->{helper}{RUNNING_PID}));
-	InternalTimer(gettimeofday()+$hash->{INTERVAL},"effekta_nb_doInternalUpdate",$hash);
+	InternalTimer(gettimeofday()+$interval,"effekta_nb_doInternalUpdate",$hash);
 }
 #*********************************************************************
 sub effekta_blck_doInternalUpdate($){
 my ($hash) = @_;
 my $name = $hash->{NAME};
+my $timeout;
 my %requests = (
 	'QPIRI' => "5150495249f8540d", ## Device rating information Inquiry
 	'QPIGS' => "5150494753b7a90d", ## Device general Status parameters Inquiry
@@ -172,16 +170,17 @@ my %requests = (
 #	'QMCHGC' => "514d4348474352d8550d"
 #	);
 
-		Log3($name,1, "effekta automatisches Update");
+		Log3($name,1, "effekta automatisches Update _Line: " . __LINE__);
 		foreach (keys %requests) {
 			$hash->{helper}{recv_finished} = 0;
-			Log3($name,1, "effekta: loope durch die Befehle %requests{$_}");
-			Log3($name,1, "effekta recv:$hash->{helper}{recv} _ ist leer, führe write aus.");
+			Log3($name,1, "effekta: loope durch die Befehlei, sende: %requests{$_} _Line:". __LINE__);
+			Log3($name,1, "effekta recv:$hash->{helper}{recv} _ ist leer, führe write aus. _Line: " . __LINE__);
 			$hash->{helper}{lastreq} = $_;
 			DevIo_SimpleWrite($hash,%requests{$_},1);
-			until($hash->{helper}{recv_finished}){
-				Log3($name,1, "effekta recv:$hash->{helper}{recv_finished} _... warte noch eine sekunde");
+			until($hash->{helper}{recv_finished} || $timeout > 10){
+				Log3($name,1, "effekta recv:$hash->{helper}{recv_finished} _... warte noch eine sekunde _Line:" .  __LINE__);
 				sleep 1;
+				$timeout++;
 			}	
 		
 		}
@@ -196,7 +195,7 @@ sub updateDone($){
 my ($hash) = @_;
 my $name = $hash->{NAME};
 
-	Log3($name,1, "effekta updateDone(); Lösche hash helper runningpid");
+	Log3($name,1, "effekta updateDone(); Lösche hash helper runningpid" . __LINE__);
 	delete($hash->{helper}{RUNNING_PID});
 
 }
@@ -207,38 +206,38 @@ sub effekta_Read($$)
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	
-	Log3($name,1, "effekta jetzt wird gelesen");
+	Log3($name,1, "effekta jetzt wird gelesen" . __LINE__);
 	# read from serial device
 	#
 	
         my $buf =  DevIo_SimpleRead($hash);
-	Log3($name,1, "effekta buffer: $buf");
+	Log3($name,1, "effekta buffer: $buf" . __LINE__);
 	if (!defined($buf)  || $buf eq "")
 	{ 
 		
-		Log3($name,1, "effekta Fehler beim lesen");
+		Log3($name,1, "effekta Fehler beim lesen" . __LINE__);
 		return "error" ;
 	}
  	# es geht los mit einem ( und hört auf mit 0d - eigentlich.	
 	$hash->{helper}{recv} .= $buf; 
 	
-	Log3($name,1, "effekta helper: $hash->{helper}{recv} "); 
+	Log3($name,1, "effekta helper: $hash->{helper}{recv} " . __LINE__); 
 	my $hexstring = unpack ('H*', $hash->{helper}{recv});
 
-	Log3($name,1, "effekta hexstring: $hexstring");
+	Log3($name,1, "effekta hexstring: $hexstring" . __LINE__);
 	my $begin = substr($hexstring,0,2); ## die ersten zwei Zeichen
-	Log3($name,1, "effekta begin: $begin");
+	Log3($name,1, "effekta begin: $begin" . __LINE__);
 	my $end = substr($hexstring,-2);# die letzten zwei Zeichen
-	Log3($name,1, "effekta end: $end");
+	Log3($name,1, "effekta end: $end" . __LINE__);
 
 	if ($begin =~ "28" && $end eq "0d") {
 		my $a = $hash->{helper}{recv};
 		my $asciistring = substr($a,1,length($a)-8);
-		Log3($name,1, "effekta ascii: $asciistring");
+		Log3($name,1, "effekta ascii: $asciistring" . __LINE__);
 		my @splits = split(" ",$asciistring);
-		Log3($name,1, "effekta splits: $splits[0]");
-	effekta_analyze_answer($hash,$hash->{helper}{lastreq}, @splits);
-		$hash->{helper}{recv} = "";
+		Log3($name,1, "effekta splits: $splits[0]" . __LINE__);
+		effekta_analyze_answer($hash,$hash->{helper}{lastreq}, @splits);
+		$hash->{helper}{recv} = "1";
 	} else {
 	$begin = "";
 	$end="";
@@ -251,19 +250,19 @@ sub effekta_Read($$)
 	
 	
 }
-
+##########################################################################################
 
 sub effekta_analyze_answer($$@){
 
 	my ($hash,$cmd,@values) = @_;
 	my $name = $hash->{NAME};
-		Log3($name,1, "effekta cmd: $cmd");
+		Log3($name,1, "effekta cmd: $cmd" . __LINE__);
 
-		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas");
+		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas" . __LINE__);
 given($cmd){
 	when($cmd eq "QPIRI") {
 
-		Log3($name,1, "effekta cmd: analysiere qpiri");
+		Log3($name,1, "effekta cmd: analysiere qpiri" . __LINE__);
 					readingsBeginUpdate($hash);
 						readingsBulkUpdate($hash,"Grid rating Voltage",$values[0]);
 						readingsBulkUpdate($hash,"Grid rating Current",$values[1]);
@@ -306,9 +305,9 @@ given($cmd){
 					readingsEndUpdate($hash,1);
 				}
 	when($cmd eq "QMOD") {
-		Log3($name,1, "effekta cmd: analysiere QMOD");
+		Log3($name,1, "effekta cmd: analysiere QMOD" . __LINE__);
 					my $a = $values[0];
-					Log3($name,1, "effekta uebergeben: $a");
+					Log3($name,1, "effekta uebergeben: $a" . __LINE__);
 					my $r;
 					given($a) {
 							when($a eq "P") {$r = "Power on Mode";}
@@ -318,7 +317,7 @@ given($cmd){
 							when($a eq "F") {$r = "Fault Mode";}
 							when($a eq "H") {$r = "Power saving Mode";}
 					}
-					Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r");
+					Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r" . __LINE__);
 					readingsBeginUpdate($hash);
 						readingsBulkUpdate($hash,"Device Mode",$r,1);
 					readingsEndUpdate($hash,1);
@@ -326,7 +325,7 @@ given($cmd){
 	}	
 	when($cmd eq "QPIGS") {
 	
-		Log3($name,1, "effekta cmd: analysiere QPIGS");
+		Log3($name,1, "effekta cmd: analysiere QPIGS" . __LINE__);
 					readingsBeginUpdate($hash);
 					
 						readingsBulkUpdate($hash,"Grid voltage",$values[0],1);
