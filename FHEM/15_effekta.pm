@@ -116,8 +116,8 @@ sub effekta_Set($@){
 	} elsif ($a[1] eq "interval")
 	{
 		Log3($name,3, "INterval changed to $a[2]");
-		readingsSingleUpdate($hash,"Interval",$a[2],1);
-
+		#	readingsSingleUpdate($hash,"Interval",$a[2],1);
+		$hash->{INTERVAL} = $a[2];
 	}
 	
 }
@@ -137,7 +137,7 @@ sub effekta_Get($@){
 sub effekta_nb_doInternalUpdate($){
 	my ($hash) = @_;
 	$hash->{helper}{RUNNING_PID} = BlockingCall("blck_doInternalUpdate",$hash) unless(exists($hash->{helper}{RUNNING_PID}));
-	InternalTimer(gettimeofday()+$hash->{helper}{interval},"effekta_nb_doInternalUpdate",$hash);
+	InternalTimer(gettimeofday()+$hash->{INTERVAL},"effekta_nb_doInternalUpdate",$hash);
 }
 #*********************************************************************
 sub effekta_blck_doInternalUpdate($){
