@@ -1,5 +1,6 @@
 ##############################################
 # $Id: 15_effekta.pm 2016-01-14 09:25:24Z stephanaugustin $
+# test 
 package main;
 
 use strict;
@@ -57,8 +58,7 @@ effekta_DoInit($)
 ###########################################
 #_ready-function for reconnecting the Device
 # function is called, when connection is down.
-sub
-effekta_Ready($)
+sub effekta_Ready($)
 {
   my ($hash) = @_;
 
@@ -82,8 +82,7 @@ effekta_Ready($)
 
 
 #####################################
-sub
-effekta_Undef($$)
+sub effekta_Undef($$)
 {
   my ($hash, $name) = @_;
   DevIo_CloseDev($hash);         
@@ -116,6 +115,9 @@ sub effekta_Set($@){
 		return "device opened $ret";
 	} elsif ($a[1] eq "interval")
 	{
+		Log3($name,3, "INterval changed to $a[2]");
+		readingsSingleUpdate($hash,"Interval",$a[2],1);
+
 	}
 	
 }
@@ -123,10 +125,6 @@ sub effekta_Set($@){
 sub effekta_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-
-
-
-
 	my $usage = "Unknown argument $a[1], choose one of update:QMOD,QPIRI,QPIGS"; 
 	Log3($name,1, "effekta argument $a[1]");
   	if ($a[1] eq "?"){
@@ -134,12 +132,8 @@ sub effekta_Get($@){
 	return $usage;
 	}
 	if($a[1] eq "update") { effekta_updateReadings($hash, $a[2]); }
-
 }
 #####################################
-
-####################################
-#*********************************************************************
 sub effekta_nb_doInternalUpdate($){
 	my ($hash) = @_;
 	$hash->{helper}{RUNNING_PID} = BlockingCall("blck_doInternalUpdate",$hash) unless(exists($hash->{helper}{RUNNING_PID}));
@@ -181,9 +175,11 @@ my %requests = (
 		
 		}
 
-}
+
 
 return; 
+}
+
 #**********************************************************************
 sub updateDone($){
 my ($hash) = @_;
