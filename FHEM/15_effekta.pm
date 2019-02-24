@@ -46,7 +46,10 @@ if(@a < 3 || @a > 5){
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "effekta_DoInit" );
   Log3($name, 1, "effekta DevIO_OpenDev_Define $ret"); 
+  effekta_nb_doInternalUpdate($hash);
   return $ret;
+
+
 }
 
 
@@ -95,6 +98,7 @@ sub effekta_Set($@){
 	my $name = $hash->{NAME};
 	my $usage = "Unknown argument $a[1], choose one of reopen:noArg interval"; 
 	my $ret;
+	my $minInterval = 30;
 	Log3($name,1, "effekta argument $a[1]");
   	if ($a[1] eq "?"){
 	Log3($name,1, "effekta argument fragezeichen");
@@ -114,10 +118,17 @@ sub effekta_Set($@){
 		}
 		return "device opened $ret";
 	} elsif ($a[1] eq "interval")
-	{
-		Log3($name,3, "INterval changed to $a[2]");
+	{	
+		if($a[2] =~ m/^\d+$/ && $a[2] > $minInterval){
+			Log3($name,3, "Interval changed to $a[2]");
+			$hash->{INTERVAL} = $a[2];
+		} else {
+
+			Log3($name,3, "Interval changed to $minInterval";
+			$hash->{INTERVAL} = $minInterval;
+			return "Interval-Value too small, changed to minimum ($minInterval)";
+		}			
 		#	readingsSingleUpdate($hash,"Interval",$a[2],1);
-		$hash->{INTERVAL} = $a[2];
 	}
 	
 }
