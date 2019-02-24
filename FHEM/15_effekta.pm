@@ -94,7 +94,7 @@ effekta_Undef($$)
 sub effekta_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of qpi:noArg"; 
+	my $usage = "Unknown argument $a[1], choose one of reopen:noArg interval"; 
 	my $ret;
 	Log3($name,1, "effekta argument $a[1]");
   	if ($a[1] eq "?"){
@@ -103,24 +103,30 @@ sub effekta_Set($@){
 	}
 	if($a[1] eq "reopen"){
 		if(DevIo_IsOpen($hash)){
-			Log3($name,1, "effekta_Set Device is open");
-			return "device already open";
-		} else {
-			Log3($name,1, "effekta_Set  Device is closed, trying to open");
+			DevIo_CloseDev($hash);
+			Log3($name,1, "effekta Device closed");
+		} 
+		Log3($name,1, "effekta_Set  Device is closed, trying to open");
+		$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
+		while(!DevIo_IsOpen($hash)){
+			Log3($name,1, "effekta_Set  Device is closed, opening failed, retrying");
 			$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
-			while(!DevIo_IsOpen($hash)){
-				Log3($name,1, "effekta_Set  Device is closed, opening failed, retrying");
-				$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
-				sleep 1;
-			}
-			return "device opened $ret";
+			sleep 1;
 		}
+		return "device opened $ret";
+	} elsif ($a[1] eq "interval")
+	{
 	}
+	
 }
 #####################################
 sub effekta_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
+
+
+
+
 	my $usage = "Unknown argument $a[1], choose one of update:QMOD,QPIRI,QPIGS"; 
 	Log3($name,1, "effekta argument $a[1]");
   	if ($a[1] eq "?"){
@@ -131,57 +137,62 @@ sub effekta_Get($@){
 
 }
 #####################################
-sub effekta_updateReadings($$){
 
-	my ($hash, $order) = @_;
-	my $name = $hash->{NAME};
-	my $key;
-	my $QPIRI = "5150495249f8540d"; ## Device rating information Inquiry
-	my $QPIGS = "5150494753b7a90d"; ## Device general Status parameters inquiry
-	my $QMOD = "514d4f4449c10d"; ## Device Mode inquiry
-	my $QPIWS = "5150495753b4da0d"; ##Device Warning Status inquiry
-	my $QPGS0 = "51504753303fda0d";## Parallel Information inquiry
-	my $QSID = "51534944bb050d"; ## nicht dokumentiert
-	my $QBEQI = "51424851492ea90d"; 
-	my $QVFW = "5156465732c3f50d";
-	my $QDI = "514449711b0d";
-	my $QFLAG = "51464c414798740d";
-	my $QBEGI = "51424551492ea90d"; 
-	my $QMUCHGCR = "514d55434847435226340d"; ## Setting utility max charge current
-	my $QMCHGC = "514d4348474352d8550d"; ## Setting Max Charge Current
-	
-
+####################################
+#*********************************************************************
+sub effekta_nb_doInternalUpdate($){
+	my ($hash) = @_;
+	$hash->{helper}{RUNNING_PID} = BlockingCall("blck_doInternalUpdate",$hash) unless(exists($hash->{helper}{RUNNING_PID}));
+	InternalTimer(gettimeofday()+$hash->{helper}{interval},"effekta_nb_doInternalUpdate",$hash);
+}
+#*********************************************************************
+sub effekta_blck_doInternalUpdate($){
+my ($hash) = @_;
+my $name = $hash->{NAME};
 my %requests = (
-	'QPIRI' => "5150495249f8540d",
-	'QPIGS' => "5150494753b7a90d",
-	'QMOD' => "514d4f4449c10d",
-	'QPIWS' => "5150495753b4da0d",
-	'QPGS0' => "51504753303fda0d",
-	'QSID' => "51534944bb050d",
-	'QBEQI' => "51424851492ea90d", 
-	'QVFW' => "5156465732c3f50d",
-	'QDI' => "514449711b0d",
-	'QFLAG' => "51464c414798740d",
-	'QBEGI' => "51424551492ea90d", 
-	'QMUCHGCR' => "514d55434847435226340d",
-	'QMCHGC' => "514d4348474352d8550d"
+	'QPIRI' => "5150495249f8540d", ## Device rating information Inquiry
+	'QPIGS' => "5150494753b7a90d", ## Device general Status parameters Inquiry
+	'QMOD' => "514d4f4449c10d" ## Device Mode inquiry
 	);
+	
+#	'QPIWS' => "5150495753b4da0d", ##Device Warning Status Inquiry
+#	'QPGS0' => "51504753303fda0d", ## Parallel Information Inquiry
+#	'QSID' => "51534944bb050d", ## nicht dokumentiert
+#	'QBEQI' => "51424851492ea90d", 
+#	'QVFW' => "5156465732c3f50d",
+#	'QDI' => "514449711b0d",
+#	'QFLAG' => "51464c414798740d",
+#	'QBEGI' => "51424551492ea90d", 
+#	'QMUCHGCR' => "514d55434847435226340d",
+#	'QMCHGC' => "514d4348474352d8550d"
+#	);
 
-	if ($hash->{helper}{recv} eq ""){
-		$hash->{helper}{lastreq} = $order;
-		DevIo_SimpleWrite($hash,%requests{$order},1);
-	}
+		Log3($name,1, "effekta automatisches Update");
+		foreach (keys %requests) {
+			$hash->{helper}{recv_finished} = 0;
+			Log3($name,1, "effekta: loope durch die Befehle %requests{$_}");
+			Log3($name,1, "effekta recv:$hash->{helper}{recv} _ ist leer, führe write aus.");
+			$hash->{helper}{lastreq} = $_;
+			DevIo_SimpleWrite($hash,%requests{$_},1);
+			until($hash->{helper}{recv_finished}){
+				Log3($name,1, "effekta recv:$hash->{helper}{recv_finished} _... warte noch eine sekunde");
+				sleep 1;
+			}	
+		
+		}
+
 }
 
+return; 
+#**********************************************************************
+sub updateDone($){
+my ($hash) = @_;
+my $name = $hash->{NAME};
 
-#####################################
-sub effekta_write($){
+	Log3($name,1, "effekta updateDone(); Lösche hash helper runningpid");
+	delete($hash->{helper}{RUNNING_PID});
 
-  my ($hash, $name) = @_;
-  return;
 }
-
-
 #####################################
 sub effekta_Read($$)
 {
