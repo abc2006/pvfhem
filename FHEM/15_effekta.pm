@@ -134,7 +134,6 @@ sub effekta_Get($@){
   		effekta_nb_doInternalUpdate($hash);
 	}elsif($a[1] eq "updateBlk") { 
 		effekta_blck_doInternalUpdate($hash);
-		#effekta_nb_doInternalUpdate($hash);
 	}
 }
 #####################################
@@ -169,23 +168,59 @@ my %requests = (
 #	'QMUCHGCR' => "514d55434847435226340d",
 #	'QMCHGC' => "514d4348474352d8550d"
 #	);
+	
 
-		Log3($name,1, "effekta automatisches Update _Line: " . __LINE__);
-		foreach (keys %requests) {
-			$hash->{helper}{recv_finished} = 0;
-			Log3($name,1, "effekta: loope durch die Befehlei, sende: %requests{$_} _Line:". __LINE__);
-			Log3($name,1, "effekta recv:$hash->{helper}{recv} _ ist leer, führe write aus. _Line: " . __LINE__);
-			$hash->{helper}{lastreq} = $_;
-			DevIo_SimpleWrite($hash,%requests{$_},1);
-			until($hash->{helper}{recv_finished} || $timeout > 10){
-				Log3($name,1, "effekta recv:$hash->{helper}{recv_finished} _... warte noch eine sekunde _Line:" .  __LINE__);
-				sleep 1;
-				$timeout++;
-			}	
-		
-		}
+	$hash->{helper}{recv} = "";
+#	$hash->{helper}{recv_finished} = "";
+#	$hash->{helper}{lastreq} = "";
 
 
+
+
+#		Log3($name,1, "effekta automatisches Update _Line: " . __LINE__);
+#		foreach (keys %requests) {
+#			$hash->{helper}{recv_finished} = 0;
+#			Log3($name,1, "effekta recv_finished:$hash->{helper}{recv_finished}. _Line: " . __LINE__);
+#			Log3($name,1, "effekta: loope durch die Befehle ($_), sende: $requests{$_} _Line:". __LINE__);
+#			Log3($name,1, "effekta recv:$hash->{helper}{recv} _ ist leer, führe write aus. _Line: " . __LINE__);
+#			$hash->{helper}{lastreq} = $_;
+#			DevIo_SimpleWrite($hash,%requests{$_},1);
+#			until($hash->{helper}{recv_finished} || $timeout > 10){
+#				Log3($name,1, "effekta recv:$hash->{helper}{recv_finished} _... warte noch eine sekunde _Line:" .  __LINE__);
+#				sleep 1;
+#				$timeout++;
+#			}	
+#		
+#		}
+
+	## okay, der Ansatz scheint nicht zu funktionieren, weil Read() wartet, bis blck fertig ist. 
+	#Wie wärs wenn... Read blck aufruft, wenn es fertig ist.? 
+	# dann müssen wir natürlich wissen, welchen Wert es zuletzt abgefragt hat. Aber: fangen wir doch mal einfach an und fragen *nur* QPIRI ab... 
+
+	if($hash->{helper}{recv_rdy} eq ""){
+		Log3($name,1, "effekta: sende (QPIRI): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "QPIRI"){
+		Log3($name,1, "effekta: sende (QPIGS): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'QPIGS'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "QPIGS"){
+		Log3($name,1, "effekta: sende (QMOD): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'QMOD'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "Q"){
+		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'Q'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "Q"){
+		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "Q"){
+		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'Q'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "Q"){
+		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
+		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
+	}elsif($hash->{helper}{recv_rdy} eq "QMOD"){
+		$hash->{helper}{recv_rdy}=""; 
+	}
 
 return; 
 }
@@ -195,7 +230,7 @@ sub updateDone($){
 my ($hash) = @_;
 my $name = $hash->{NAME};
 
-	Log3($name,1, "effekta updateDone(); Lösche hash helper runningpid" . __LINE__);
+	Log3($name,1, "effekta updateDone(); Lösche hash helper runningpid _Line:" . __LINE__);
 	delete($hash->{helper}{RUNNING_PID});
 
 }
@@ -206,47 +241,42 @@ sub effekta_Read($$)
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	
-	Log3($name,1, "effekta jetzt wird gelesen" . __LINE__);
+	Log3($name,4, "effekta jetzt wird gelesen _Line:" . __LINE__);
 	# read from serial device
 	#
 	
         my $buf =  DevIo_SimpleRead($hash);
-	Log3($name,1, "effekta buffer: $buf" . __LINE__);
+	Log3($name,5, "effekta buffer: $buf _Line:" . __LINE__);
 	if (!defined($buf)  || $buf eq "")
 	{ 
 		
-		Log3($name,1, "effekta Fehler beim lesen" . __LINE__);
+		Log3($name,1, "effekta Fehler beim lesen _Line:" . __LINE__);
 		return "error" ;
 	}
- 	# es geht los mit einem ( und hört auf mit 0d - eigentlich.	
+ 	# es geht los mit 0x28 und hört auf mit 0x0d - eigentlich.	
 	$hash->{helper}{recv} .= $buf; 
 	
-	Log3($name,1, "effekta helper: $hash->{helper}{recv} " . __LINE__); 
+	Log3($name,5, "effekta helper: $hash->{helper}{recv}  _Line:" . __LINE__); 
 	my $hexstring = unpack ('H*', $hash->{helper}{recv});
 
-	Log3($name,1, "effekta hexstring: $hexstring" . __LINE__);
+	Log3($name,5, "effekta hexstring: $hexstring  _Line:" . __LINE__);
 	my $begin = substr($hexstring,0,2); ## die ersten zwei Zeichen
-	Log3($name,1, "effekta begin: $begin" . __LINE__);
+	Log3($name,5, "effekta begin: $begin  _Line:" . __LINE__);
 	my $end = substr($hexstring,-2);# die letzten zwei Zeichen
-	Log3($name,1, "effekta end: $end" . __LINE__);
+	Log3($name,5, "effekta end: $end _Line: " . __LINE__);
 
-	if ($begin =~ "28" && $end eq "0d") {
+	if ($begin eq "28" && $end eq "0d") {
 		my $a = $hash->{helper}{recv};
 		my $asciistring = substr($a,1,length($a)-8);
-		Log3($name,1, "effekta ascii: $asciistring" . __LINE__);
+		Log3($name,5, "effekta ascii: $asciistring _Line:" . __LINE__);
 		my @splits = split(" ",$asciistring);
-		Log3($name,1, "effekta splits: $splits[0]" . __LINE__);
+		Log3($name,5, "effekta splits: $splits[0] _Line:" . __LINE__);
 		effekta_analyze_answer($hash,$hash->{helper}{lastreq}, @splits);
 		$hash->{helper}{recv} = "1";
-	} else {
-	$begin = "";
-	$end="";
-	}	
-
-
-
-
-	return "";
+	} 
+	undef $begin;
+	undef $end;
+	return;
 	
 	
 }
@@ -258,56 +288,63 @@ sub effekta_analyze_answer($$@){
 	my $name = $hash->{NAME};
 		Log3($name,1, "effekta cmd: $cmd" . __LINE__);
 
-		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas" . __LINE__);
+		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
+
+	if($values[0] =~ /NAK/){
+		Log3($name,1, "effekta analysiere $values[0] _Line:" . __LINE__);
+		effekta_blck_doInternalUpdate($hash); 
+		return;
+	}
+
 given($cmd){
 	when($cmd eq "QPIRI") {
 
-		Log3($name,1, "effekta cmd: analysiere qpiri" . __LINE__);
+		Log3($name,1, "effekta cmd: analysiere qpiri _Line:" . __LINE__);
 					readingsBeginUpdate($hash);
-						readingsBulkUpdate($hash,"Grid rating Voltage",$values[0]);
-						readingsBulkUpdate($hash,"Grid rating Current",$values[1]);
-						readingsBulkUpdate($hash,"AC output rating Voltage",$values[2]);
-						readingsBulkUpdate($hash,"AC output rating Frequency",$values[3]);
-						readingsBulkUpdate($hash,"AC output rating current",$values[4]);
-						readingsBulkUpdate($hash,"AC output rating appearent Power",$values[5]);
-						readingsBulkUpdate($hash,"AC output rating active Power",$values[6]);
-						readingsBulkUpdate($hash,"Battery rating voltage",$values[7]);
-						readingsBulkUpdate($hash,"Battery re-charge voltage",$values[8]);
-						readingsBulkUpdate($hash,"Battery under voltage",$values[9]);
-						readingsBulkUpdate($hash,"Battery bulk voltage",$values[10]);
-						readingsBulkUpdate($hash,"Battery float voltage",$values[11]);
+						readingsBulkUpdate($hash,"Grid rating Voltage",$values[0],1);
+						readingsBulkUpdate($hash,"Grid rating Current",$values[1],1);
+						readingsBulkUpdate($hash,"AC output rating Voltage",$values[2],1);
+						readingsBulkUpdate($hash,"AC output rating Frequency",$values[3],1);
+						readingsBulkUpdate($hash,"AC output rating current",$values[4],1);
+						readingsBulkUpdate($hash,"AC output rating appearent Power",$values[5],1);
+						readingsBulkUpdate($hash,"AC output rating active Power",$values[6],1);
+						readingsBulkUpdate($hash,"Battery rating voltage",$values[7],1);
+						readingsBulkUpdate($hash,"Battery re-charge voltage",$values[8],1);
+						readingsBulkUpdate($hash,"Battery under voltage",$values[9],1);
+						readingsBulkUpdate($hash,"Battery bulk voltage",$values[10],1);
+						readingsBulkUpdate($hash,"Battery float voltage",$values[11],1);
 			
 						## 0 = AGM, 1 = Flooded, 2 = User
-						readingsBulkUpdate($hash,"Battery type",$values[12]);
-						readingsBulkUpdate($hash,"Current max AC charging current",$values[13]);
-						readingsBulkUpdate($hash,"Current max charging current",$values[14]);
+						readingsBulkUpdate($hash,"Battery type",$values[12],1);
+						readingsBulkUpdate($hash,"Current max AC charging current",$values[13],1);
+						readingsBulkUpdate($hash,"Current max charging current",$values[14],1);
 						
 						# 0 = Appliance, 1 = UPS
-						readingsBulkUpdate($hash,"Input voltage range",$values[15]);
+						readingsBulkUpdate($hash,"Input voltage range",$values[15],1);
 						#0 = Utility first, 1 = Solar first, 2 = SBU
-						readingsBulkUpdate($hash,"Output Source priority",$values[16]);
+						readingsBulkUpdate($hash,"Output Source priority",$values[16],1);
 						#0 = Utility first, 1 = Solar first, 2 = Solar + Utility, 3: = only solar charging permitted
-						readingsBulkUpdate($hash,"Charger source priority",$values[17]);
-						readingsBulkUpdate($hash,"Parallel max num",$values[18]);
+						readingsBulkUpdate($hash,"Charger source priority",$values[17],1);
+						readingsBulkUpdate($hash,"Parallel max num",$values[18],1);
 						#00 Grid tie, 01 off grid 10 Hybrid
-						readingsBulkUpdate($hash,"Machine type",$values[19]);
+						readingsBulkUpdate($hash,"Machine type",$values[19],1);
 						# 0 transformerless, 1 transformer
-						readingsBulkUpdate($hash,"Topology",$values[20]);
+						readingsBulkUpdate($hash,"Topology",$values[20],1);
 						# 0 single machine 01 parallel output 02 phase 1 of 3 03 phase 2 of 3 04 phase 3 of 3
-						readingsBulkUpdate($hash,"Output Mode",$values[21]);
-						readingsBulkUpdate($hash,"Battery re-discharge voltage",$values[22]);
+						readingsBulkUpdate($hash,"Output Mode",$values[21],1);
+						readingsBulkUpdate($hash,"Battery re-discharge voltage",$values[22],1);
 						# 0 = as long as one unit has PV connected, parallel system will consider PV OK
 						# 1 = inly all of inverters ghave connected pv, parallel system will consider PV OK
-						readingsBulkUpdate($hash,"PV OK condition for parallel",$values[23]);
+						readingsBulkUpdate($hash,"PV OK condition for parallel",$values[23],1);
 						# 0 = PV ionput max current wl be the max charged current
 						# 1 = PV input max power will be the sum of the max charged power and loads power.
-						readingsBulkUpdate($hash,"PV power balance",$values[24]);
+						readingsBulkUpdate($hash,"PV power balance",$values[24],1);
 					readingsEndUpdate($hash,1);
 				}
 	when($cmd eq "QMOD") {
-		Log3($name,1, "effekta cmd: analysiere QMOD" . __LINE__);
+		Log3($name,1, "effekta cmd: analysiere QMOD _Line:" . __LINE__);
 					my $a = $values[0];
-					Log3($name,1, "effekta uebergeben: $a" . __LINE__);
+					Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
 					my $r;
 					given($a) {
 							when($a eq "P") {$r = "Power on Mode";}
@@ -317,7 +354,7 @@ given($cmd){
 							when($a eq "F") {$r = "Fault Mode";}
 							when($a eq "H") {$r = "Power saving Mode";}
 					}
-					Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r" . __LINE__);
+					Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
 					readingsBeginUpdate($hash);
 						readingsBulkUpdate($hash,"Device Mode",$r,1);
 					readingsEndUpdate($hash,1);
@@ -325,7 +362,7 @@ given($cmd){
 	}	
 	when($cmd eq "QPIGS") {
 	
-		Log3($name,1, "effekta cmd: analysiere QPIGS" . __LINE__);
+		Log3($name,1, "effekta cmd: analysiere QPIGS _Line:" . __LINE__);
 					readingsBeginUpdate($hash);
 					
 						readingsBulkUpdate($hash,"Grid voltage",$values[0],1);
@@ -345,10 +382,15 @@ given($cmd){
 						readingsBulkUpdate($hash,"Battery voltage from SCC",$values[14],1);
 						readingsBulkUpdate($hash,"Battery discharge current",$values[15],1);
 						# 
-						readingsBulkUpdate($hash,"Device Status",$values[16]);
+						readingsBulkUpdate($hash,"Device Status",$values[16],1);
 					readingsEndUpdate($hash,1);
 	}	
+
 }
+## Hier müsste jetzt wieder die Sendefunktion aufgerufen werden
+$hash->{helper}{recv_rdy}=$cmd;
+Log3($name,1, "effekta receive ready. Rufe effekta_blck_doInternalUpdate($) auf ... _Line:" . __LINE__);
+effekta_blck_doInternalUpdate($hash); 
 }
 
 1;
