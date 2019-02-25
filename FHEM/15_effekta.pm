@@ -200,15 +200,19 @@ my %requests = (
 	if($hash->{helper}{recv_rdy} eq ""){
 		Log3($name,1, "effekta: sende (QPIRI): $requests{'QPIRI'} _Line:". __LINE__);
 		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
+		$hash->{helper}{lastreq} = "QPIRI";
 	}elsif($hash->{helper}{recv_rdy} eq "QPIRI"){
 		Log3($name,1, "effekta: sende (QPIGS): $requests{'QPIRI'} _Line:". __LINE__);
 		DevIo_SimpleWrite($hash,$requests{'QPIGS'},1);
+		$hash->{helper}{lastreq} = "QPIGS";
 	}elsif($hash->{helper}{recv_rdy} eq "QPIGS"){
 		Log3($name,1, "effekta: sende (QMOD): $requests{'QPIRI'} _Line:". __LINE__);
 		DevIo_SimpleWrite($hash,$requests{'QMOD'},1);
+		$hash->{helper}{lastreq} = "QPIRI";
 	}elsif($hash->{helper}{recv_rdy} eq "Q"){
 		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
 		DevIo_SimpleWrite($hash,$requests{'Q'},1);
+		$hash->{helper}{lastreq} = "QPIRI";
 	}elsif($hash->{helper}{recv_rdy} eq "Q"){
 		Log3($name,1, "effekta: sende (Q): $requests{'QPIRI'} _Line:". __LINE__);
 		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
@@ -220,6 +224,7 @@ my %requests = (
 		DevIo_SimpleWrite($hash,$requests{'QPIRI'},1);
 	}elsif($hash->{helper}{recv_rdy} eq "QMOD"){
 		$hash->{helper}{recv_rdy}=""; 
+		$hash->{helper}{lastreq} = "QMOD";
 	}
 
 return; 
@@ -257,36 +262,34 @@ sub effekta_Read($$)
 	$hash->{helper}{recv} .= $buf; 
 	
 	Log3($name,5, "effekta helper: $hash->{helper}{recv}  _Line:" . __LINE__); 
-	my $hexstring = unpack ('H*', $hash->{helper}{recv});
+#	my $hexstring = unpack ('H*', $hash->{helper}{recv});
+#	Log3($name,5, "effekta hexstring: $hexstring  _Line:" . __LINE__);
+#	my $begin = substr($hexstring,0,2); ## die ersten zwei Zeichen
+#	Log3($name,5, "effekta begin: $begin  _Line:" . __LINE__);
+#	my $end = substr($hexstring,-2);# die letzten zwei Zeichen
+#	Log3($name,5, "effekta end: $end _Line: " . __LINE__);
 
-	Log3($name,5, "effekta hexstring: $hexstring  _Line:" . __LINE__);
-	my $begin = substr($hexstring,0,2); ## die ersten zwei Zeichen
-	Log3($name,5, "effekta begin: $begin  _Line:" . __LINE__);
-	my $end = substr($hexstring,-2);# die letzten zwei Zeichen
-	Log3($name,5, "effekta end: $end _Line: " . __LINE__);
-
-	if ($begin eq "28" && $end eq "0d") {
-		my $a = $hash->{helper}{recv};
-		my $asciistring = substr($a,1,length($a)-8);
+#	if ($begin eq "28" && $end eq "0d") {
+	if ($hash->{helper}{recv} =~ /\((.*)\r/) {
+		my $asciistring = $1;
 		Log3($name,5, "effekta ascii: $asciistring _Line:" . __LINE__);
 		my @splits = split(" ",$asciistring);
 		Log3($name,5, "effekta splits: $splits[0] _Line:" . __LINE__);
-		effekta_analyze_answer($hash,$hash->{helper}{lastreq}, @splits);
+		effekta_analyze_answer($hash, @splits);
 		$hash->{helper}{recv} = "1";
 	} 
-	undef $begin;
-	undef $end;
 	return;
 	
 	
 }
 ##########################################################################################
 
-sub effekta_analyze_answer($$@){
+sub effekta_analyze_answer($@){
 
-	my ($hash,$cmd,@values) = @_;
+	my ($hash,@values) = @_;
 	my $name = $hash->{NAME};
-		Log3($name,1, "effekta cmd: $cmd" . __LINE__);
+	my $cmd = $hash->{helper}{lastreq};
+	Log3($name,1, "effekta cmd: $cmd _Line:" . __LINE__);
 
 		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
 
@@ -389,7 +392,7 @@ given($cmd){
 }
 ## Hier müsste jetzt wieder die Sendefunktion aufgerufen werden
 $hash->{helper}{recv_rdy}=$cmd;
-Log3($name,1, "effekta receive ready. Rufe effekta_blck_doInternalUpdate($) auf ... _Line:" . __LINE__);
+Log3($name,1, "effekta receive ready: $hash->{helper}{recv_rdy}. Rufe effekta_blck_doInternalUpdate() auf ... _Line:" . __LINE__);
 effekta_blck_doInternalUpdate($hash); 
 }
 
