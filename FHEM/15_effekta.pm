@@ -224,7 +224,7 @@ sub effekta_Read($$)
 	$hash->{helper}{recv} .= $buf; 
 	
 	Log3($name,5, "effekta helper: $hash->{helper}{recv}  _Line:" . __LINE__); 
-	if ($hash->{helper}{recv} =~ /\((.*)\r/) {
+	if ($hash->{helper}{recv} =~ /\((.*)/) {
 		my $asciistring = $1;
 		Log3($name,5, "effekta ascii: $asciistring _Line:" . __LINE__);
 		my @splits = split(" ",$asciistring);
