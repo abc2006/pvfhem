@@ -198,7 +198,7 @@ if($hash->{helper}{key} eq ""){
 	$hash->{helper}{key} = pop( @{$hash->{actionQueue}} );
 }
 Log3 $name, 4, "effekta ($name) - effekta_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;	
-Log3 $name, 4, "effekta ($name) - effekta_sendRequests key: $hash->{helper}{value}  Line: " . __LINE__;	
+Log3 $name, 4, "effekta ($name) - effekta_sendRequests key: $hash->{helper}{key}  Line: " . __LINE__;	
 DevIo_SimpleWrite($hash,$hash->{helper}{value},1);
 }
 #####################################
