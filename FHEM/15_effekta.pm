@@ -171,6 +171,12 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 		Log3 $name, 4, "effekta ($name) - actionQueue filli: $key  Line: " . __LINE__;	
 		Log3 $name, 4, "effekta ($name) - actionQueue filli: $value  Line: " . __LINE__;	
 			unshift( @{$hash->{actionQueue}}, $value );
+			unshift( @{$hash->{actionQueue}}, $key );
+			#My $hash = (
+			#	foo => [1,2,3,4,5],
+			#	bar => [a,b,c,d,e]
+			#);
+			#@{$hash{foo}} would be (1,2,3,4,5)
 		}
 		Log3 $name, 4, "effekta ($name) - actionQueue filled: @{$hash->{actionQueue}}  Line: " . __LINE__;	
 		Log3 $name, 4, "effekta ($name) - call effekta_sendRequests Line: " . __LINE__;	
@@ -186,17 +192,15 @@ Log3 $name, 4, "effekta ($name) - call InternalTimer effekta_TimerGetData Line: 
 sub effekta_sendRequests($){
 my ($hash) = @_;
 my $name = $hash->{NAME};
-my $ask = pop( @{$hash->{actionQueue}} );
 
-Log3 $name, 4, "effekta ($name) - effekta_sendRequests Abfrage: $ask  Line: " . __LINE__;	
-
-
-DevIo_SimpleWrite($hash,$ask,1);
-
-
+if($hash->{helper}{key} eq ""){
+	$hash->{helper}{value} = pop( @{$hash->{actionQueue}} );
+	$hash->{helper}{key} = pop( @{$hash->{actionQueue}} );
 }
-
-
+Log3 $name, 4, "effekta ($name) - effekta_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;	
+Log3 $name, 4, "effekta ($name) - effekta_sendRequests key: $hash->{helper}{value}  Line: " . __LINE__;	
+DevIo_SimpleWrite($hash,$hash->{helper}{value},1);
+}
 #####################################
 sub effekta_Read($$)
 {
@@ -240,7 +244,8 @@ sub effekta_analyze_answer($@){
 
 	my ($hash,@values) = @_;
 	my $name = $hash->{NAME};
-	my $cmd = $hash->{helper}{lastreq};
+	my $cmd = $hash->{helper}{key};
+	my $success = "failed";
 	Log3($name,1, "effekta cmd: $cmd _Line:" . __LINE__);
 
 		Log3($name,1, "effekta analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
@@ -252,8 +257,7 @@ sub effekta_analyze_answer($@){
 		return;
 	}
 
-given($cmd){
-	when($cmd eq "QPIRI") {
+if($cmd eq "QPIRI") {
 
 		Log3($name,1, "effekta cmd: analysiere qpiri _Line:" . __LINE__);
 					readingsBeginUpdate($hash);
@@ -296,57 +300,61 @@ given($cmd){
 						# 1 = PV input max power will be the sum of the max charged power and loads power.
 						readingsBulkUpdate($hash,"PV power balance",$values[24],1);
 					readingsEndUpdate($hash,1);
-				}
-	when($cmd eq "QMOD") {
-		Log3($name,1, "effekta cmd: analysiere QMOD _Line:" . __LINE__);
-					my $a = $values[0];
-					Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
-					my $r;
-					given($a) {
-							when($a eq "P") {$r = "Power on Mode";}
-							when($a eq "S") {$r = "Standby Mode";}
-							when($a eq "L") {$r = "Line Mode";}
-							when($a eq "B") {$r = "Battery Mode";}
-							when($a eq "F") {$r = "Fault Mode";}
-							when($a eq "H") {$r = "Power saving Mode";}
-					}
-					Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
-					readingsBeginUpdate($hash);
-						readingsBulkUpdate($hash,"Device Mode",$r,1);
-					readingsEndUpdate($hash,1);
-					
-	}	
-	when($cmd eq "QPIGS") {
-	
-		Log3($name,1, "effekta cmd: analysiere QPIGS _Line:" . __LINE__);
-					readingsBeginUpdate($hash);
-					
-						readingsBulkUpdate($hash,"Grid voltage",$values[0],1);
-						readingsBulkUpdate($hash,"Grid frequency",$values[1],1);
-						readingsBulkUpdate($hash,"AC output voltage",$values[2],1);
-						readingsBulkUpdate($hash,"AC output frequency",$values[3],1);
-						readingsBulkUpdate($hash,"AC output appearent power",$values[4],1);
-						readingsBulkUpdate($hash,"AC output active power",$values[5],1);
-						readingsBulkUpdate($hash,"Output load percent",$values[6],1);
-						readingsBulkUpdate($hash,"BUS voltage",$values[7],1);
-						readingsBulkUpdate($hash,"Battery voltage",$values[8],1);
-						readingsBulkUpdate($hash,"Battery charging current",$values[9],1);
-						readingsBulkUpdate($hash,"Battery capacity",$values[10],1);
-						readingsBulkUpdate($hash,"Inverter heat sink temperature",$values[11],1);
-						readingsBulkUpdate($hash,"PV Input current for battery",$values[12],1);
-						readingsBulkUpdate($hash,"PV Input voltage 1",$values[13],1);
-						readingsBulkUpdate($hash,"Battery voltage from SCC",$values[14],1);
-						readingsBulkUpdate($hash,"Battery discharge current",$values[15],1);
-						# 
-						readingsBulkUpdate($hash,"Device Status",$values[16],1);
-					readingsEndUpdate($hash,1);
+		Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+		$success="success";
+}elsif($cmd eq "QMOD") {
+	Log3($name,1, "effekta cmd: analysiere QMOD _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	my $r;
+	given($a) {
+		when($a eq "P") {$r = "Power on Mode";}
+		when($a eq "S") {$r = "Standby Mode";}
+		when($a eq "L") {$r = "Line Mode";}
+		when($a eq "B") {$r = "Battery Mode";}
+		when($a eq "F") {$r = "Fault Mode";}
+		when($a eq "H") {$r = "Power saving Mode";}
+	}
+	Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Device Mode",$r,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QPIGS") {
+	Log3($name,1, "effekta cmd: analysiere QPIGS _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Grid voltage",$values[0],1);
+		readingsBulkUpdate($hash,"Grid frequency",$values[1],1);
+		readingsBulkUpdate($hash,"AC output voltage",$values[2],1);
+		readingsBulkUpdate($hash,"AC output frequency",$values[3],1);
+		readingsBulkUpdate($hash,"AC output appearent power",$values[4],1);
+		readingsBulkUpdate($hash,"AC output active power",$values[5],1);
+		readingsBulkUpdate($hash,"Output load percent",$values[6],1);
+		readingsBulkUpdate($hash,"BUS voltage",$values[7],1);
+		readingsBulkUpdate($hash,"Battery voltage",$values[8],1);
+		readingsBulkUpdate($hash,"Battery charging current",$values[9],1);
+		readingsBulkUpdate($hash,"Battery capacity",$values[10],1);
+		readingsBulkUpdate($hash,"Inverter heat sink temperature",$values[11],1);
+		readingsBulkUpdate($hash,"PV Input current for battery",$values[12],1);
+		readingsBulkUpdate($hash,"PV Input voltage 1",$values[13],1);
+		readingsBulkUpdate($hash,"Battery voltage from SCC",$values[14],1);
+		readingsBulkUpdate($hash,"Battery discharge current",$values[15],1);
+		# 
+		readingsBulkUpdate($hash,"Device Status",$values[16],1);
+	readingsEndUpdate($hash,1);
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
 	}	
 
+Log3($name,1, "effekta receive ready. _Line:" . __LINE__);
+if($success eq "success"){
+	$hash->{helper}{key} = "";
+	$hash->{helper}{value} = "";
 }
-## Hier müsste jetzt wieder die Sendefunktion aufgerufen werden
-$hash->{helper}{recv_rdy}=$cmd;
-Log3($name,1, "effekta receive ready: $hash->{helper}{recv_rdy}. Rufe effekta_blck_doInternalUpdate() auf ... _Line:" . __LINE__);
-effekta_blck_doInternalUpdate($hash); 
+
+
 }
 
 1;
