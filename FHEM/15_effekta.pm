@@ -38,7 +38,7 @@ effekta_Initialize($)
   $hash->{NotifyFn}    = "effekta_Notify";
   $hash->{ReadFn}    = "effekta_Read";
   $hash->{ReadyFn}    = "effekta_Ready";
-  $hash->{AttrList}  = "Interval Anschluss ".
+  $hash->{AttrList}  = "interval Anschluss ".
                         $readingFnAttributes;
 
 }
@@ -57,11 +57,12 @@ if(@a < 3 || @a > 5){
 	my $name = $a[0];
 	my $device = $a[2];
  
-  $hash->{name} = $name;
+  $hash->{NAME} = $name;
   ## $hash->DeviceName keeps the name of the io-Device. Without this, DevIO does not work.
   $hash->{DeviceName} = $device;
   $hash->{NOTIFYDEV} 	= "global";
   $hash->{INTERVAL} 	= 120 ;
+  $hash->{INTERVAL} = AttrVal($name,"interval",120);
   $hash->{actionQueue} 	= [];	
 #close connection if maybe open (on definition modify)
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
@@ -100,11 +101,19 @@ my $devtype = $dev->{TYPE};
 my $events = deviceEvents($dev,1);
 Log3 $name, 4, "effekta ($name) - effekta_Notify - not disabled  Line: " . __LINE__;	
 return if (!$events);
+if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
+	Log3 $name, 4, "effekta ($name) - effekta_Notify change Interval to AttrVal($name,interval,120) _Line: " . __LINE__;	
+	$hash->{INTERVAL} = AttrVal($name,"interval",120);
+}
+
+
 Log3 $name, 4, "effekta ($name) - effekta_Notify got events @{$events} Line: " . __LINE__;	
 effekta_TimerGetData($hash) if( grep /^INITIALIZED$/,@{$events}
 				or grep /^DELETEATTR.$name.disable$/,@{$events}
 				or grep /^DELETEATTR.$name.interval$/,@{$events}
 				or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
+
+
 return;
 
 }
@@ -199,6 +208,7 @@ if($hash->{helper}{key} eq ""){
 }
 Log3 $name, 4, "effekta ($name) - effekta_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;	
 Log3 $name, 4, "effekta ($name) - effekta_sendRequests key: $hash->{helper}{key}  Line: " . __LINE__;	
+$hash->{helper}{recv} = "";
 DevIo_SimpleWrite($hash,$hash->{helper}{value},1);
 }
 #####################################
@@ -213,7 +223,7 @@ sub effekta_Read($$)
 	#
 	
         my $buf =  DevIo_SimpleRead($hash);
-	Log3($name,5, "effekta buffer: $buf _Line:" . __LINE__);
+	Log3($name,5, "effekta buffer: $buf");
 	if (!defined($buf)  || $buf eq "")
 	{ 
 		
@@ -223,20 +233,34 @@ sub effekta_Read($$)
  	# es geht los mit 0x28 und hört auf mit 0x0d - eigentlich.	
 	$hash->{helper}{recv} .= $buf; 
 	
-	Log3($name,5, "effekta helper: $hash->{helper}{recv}  _Line:" . __LINE__); 
-	if ($hash->{helper}{recv} =~ /\((.*)/) {
-		my $asciistring = $1;
-		Log3($name,5, "effekta ascii: $asciistring _Line:" . __LINE__);
-		my @splits = split(" ",$asciistring);
-		Log3($name,5, "effekta splits: $splits[0] _Line:" . __LINE__);
-		effekta_analyze_answer($hash, @splits);
-		$hash->{helper}{recv} = "1";
+	Log3($name,5, "effekta helper: $hash->{helper}{recv}"); 
+	my $hex_before = unpack "H*", $hash->{helper}{recv};
+	Log3($name,5, "effekta hex_before: $hex_before");
+	## now we can modify the hex string ... 
+	if($hex_before =~ /28(.*)....0d/){
+	Log3($name,5, "effekta hex without start and CRC: $1");
+
+		my @h1 = ($1 =~ /(..)/g);
+		my @ascii_ary = map { pack ("H2", $_) } @h1;
+		my $asciistring;
+	foreach my $part (@ascii_ary){
+		$asciistring .= $part;
+		##Log3($name,5, "effekta hex_re: $part");
 	}
- 
+##	if ($hash->{helper}{recv} =~ /\((.*)\r/) {
+##		my $hexstring = unpack "H*", $1;
+##		Log3($name,5, "effekta hex_after: $hexstring");
+##		my $asciistring = $1;
+		Log3($name,5, "effekta ascii: $asciistring");
+		my @splits = split(" ",$asciistring);
+		Log3($name,5, "effekta splits: @splits");
+		effekta_analyze_answer($hash, @splits);
 	if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) != 0 ){
 		Log3 $name, 4, "effekta ($name) - effekta_ReadFn Noch nicht alle Abfragen gesendet, rufe sendRequests wieder auf  Line: " . __LINE__;	
 		effekta_sendRequests($hash);
 	}
+	}
+ 
 	return;
 }
 ##########################################################################################
@@ -261,44 +285,44 @@ if($cmd eq "QPIRI") {
 
 		Log3($name,1, "effekta cmd: analysiere qpiri _Line:" . __LINE__);
 					readingsBeginUpdate($hash);
-						readingsBulkUpdate($hash,"Grid rating Voltage",$values[0],1);
-						readingsBulkUpdate($hash,"Grid rating Current",$values[1],1);
-						readingsBulkUpdate($hash,"AC output rating Voltage",$values[2],1);
-						readingsBulkUpdate($hash,"AC output rating Frequency",$values[3],1);
-						readingsBulkUpdate($hash,"AC output rating current",$values[4],1);
-						readingsBulkUpdate($hash,"AC output rating appearent Power",$values[5],1);
-						readingsBulkUpdate($hash,"AC output rating active Power",$values[6],1);
-						readingsBulkUpdate($hash,"Battery rating voltage",$values[7],1);
-						readingsBulkUpdate($hash,"Battery re-charge voltage",$values[8],1);
-						readingsBulkUpdate($hash,"Battery under voltage",$values[9],1);
-						readingsBulkUpdate($hash,"Battery bulk voltage",$values[10],1);
-						readingsBulkUpdate($hash,"Battery float voltage",$values[11],1);
+						readingsBulkUpdate($hash,"Grid_rating_Voltage",$values[0],1);
+						readingsBulkUpdate($hash,"Grid_rating_Current",$values[1],1);
+						readingsBulkUpdate($hash,"AC_output_rating_Voltage",$values[2],1);
+						readingsBulkUpdate($hash,"AC_output_rating_Frequency",$values[3],1);
+						readingsBulkUpdate($hash,"AC_output_rating_current",$values[4],1);
+						readingsBulkUpdate($hash,"AC_output_rating_appearent_Power",$values[5],1);
+						readingsBulkUpdate($hash,"AC_output_rating_active_Power",$values[6],1);
+						readingsBulkUpdate($hash,"Battery_rating_voltage",$values[7],1);
+						readingsBulkUpdate($hash,"Battery_re-charge_voltage",$values[8],1);
+						readingsBulkUpdate($hash,"Battery_under_voltage",$values[9],1);
+						readingsBulkUpdate($hash,"Battery_bulk_voltage",$values[10],1);
+						readingsBulkUpdate($hash,"Battery_float_voltage",$values[11],1);
 			
 						## 0 = AGM, 1 = Flooded, 2 = User
-						readingsBulkUpdate($hash,"Battery type",$values[12],1);
-						readingsBulkUpdate($hash,"Current max AC charging current",$values[13],1);
-						readingsBulkUpdate($hash,"Current max charging current",$values[14],1);
+						readingsBulkUpdate($hash,"Battery_type",$values[12],1);
+						readingsBulkUpdate($hash,"Current_max_AC_charging_current",$values[13],1);
+						readingsBulkUpdate($hash,"Current_max_charging_current",$values[14],1);
 						
 						# 0 = Appliance, 1 = UPS
-						readingsBulkUpdate($hash,"Input voltage range",$values[15],1);
+						readingsBulkUpdate($hash,"Input_voltage_range",$values[15],1);
 						#0 = Utility first, 1 = Solar first, 2 = SBU
-						readingsBulkUpdate($hash,"Output Source priority",$values[16],1);
+						readingsBulkUpdate($hash,"Output_Source_priority",$values[16],1);
 						#0 = Utility first, 1 = Solar first, 2 = Solar + Utility, 3: = only solar charging permitted
-						readingsBulkUpdate($hash,"Charger source priority",$values[17],1);
-						readingsBulkUpdate($hash,"Parallel max num",$values[18],1);
+						readingsBulkUpdate($hash,"Charger_source_priority",$values[17],1);
+						readingsBulkUpdate($hash,"Parallel_max_num",$values[18],1);
 						#00 Grid tie, 01 off grid 10 Hybrid
-						readingsBulkUpdate($hash,"Machine type",$values[19],1);
+						readingsBulkUpdate($hash,"Machine_type",$values[19],1);
 						# 0 transformerless, 1 transformer
 						readingsBulkUpdate($hash,"Topology",$values[20],1);
 						# 0 single machine 01 parallel output 02 phase 1 of 3 03 phase 2 of 3 04 phase 3 of 3
-						readingsBulkUpdate($hash,"Output Mode",$values[21],1);
-						readingsBulkUpdate($hash,"Battery re-discharge voltage",$values[22],1);
+						readingsBulkUpdate($hash,"Output_Mode",$values[21],1);
+						readingsBulkUpdate($hash,"Battery_re-discharge_voltage",$values[22],1);
 						# 0 = as long as one unit has PV connected, parallel system will consider PV OK
 						# 1 = inly all of inverters ghave connected pv, parallel system will consider PV OK
-						readingsBulkUpdate($hash,"PV OK condition for parallel",$values[23],1);
+						readingsBulkUpdate($hash,"PV_OK_condition_for_parallel",$values[23],1);
 						# 0 = PV ionput max current wl be the max charged current
 						# 1 = PV input max power will be the sum of the max charged power and loads power.
-						readingsBulkUpdate($hash,"PV power balance",$values[24],1);
+						readingsBulkUpdate($hash,"PV_power_balance",$values[24],1);
 					readingsEndUpdate($hash,1);
 		Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
 		$success="success";
@@ -317,7 +341,7 @@ if($cmd eq "QPIRI") {
 	}
 	Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
-		readingsBulkUpdate($hash,"Device Mode",$r,1);
+		readingsBulkUpdate($hash,"Device_Mode",$r,1);
 	readingsEndUpdate($hash,1);
 			
 	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
@@ -325,30 +349,29 @@ if($cmd eq "QPIRI") {
 }elsif($cmd eq "QPIGS") {
 	Log3($name,1, "effekta cmd: analysiere QPIGS _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
-		readingsBulkUpdate($hash,"Grid voltage",$values[0],1);
-		readingsBulkUpdate($hash,"Grid frequency",$values[1],1);
-		readingsBulkUpdate($hash,"AC output voltage",$values[2],1);
-		readingsBulkUpdate($hash,"AC output frequency",$values[3],1);
-		readingsBulkUpdate($hash,"AC output appearent power",$values[4],1);
-		readingsBulkUpdate($hash,"AC output active power",$values[5],1);
-		readingsBulkUpdate($hash,"Output load percent",$values[6],1);
-		readingsBulkUpdate($hash,"BUS voltage",$values[7],1);
-		readingsBulkUpdate($hash,"Battery voltage",$values[8],1);
-		readingsBulkUpdate($hash,"Battery charging current",$values[9],1);
-		readingsBulkUpdate($hash,"Battery capacity",$values[10],1);
-		readingsBulkUpdate($hash,"Inverter heat sink temperature",$values[11],1);
-		readingsBulkUpdate($hash,"PV Input current for battery",$values[12],1);
-		readingsBulkUpdate($hash,"PV Input voltage 1",$values[13],1);
-		readingsBulkUpdate($hash,"Battery voltage from SCC",$values[14],1);
-		readingsBulkUpdate($hash,"Battery discharge current",$values[15],1);
-		# 
-		readingsBulkUpdate($hash,"Device Status",$values[16],1);
+		readingsBulkUpdate($hash,"Grid_voltage",$values[0],1);
+		readingsBulkUpdate($hash,"Grid_frequency",$values[1],1);
+		readingsBulkUpdate($hash,"AC_output_voltage",$values[2],1);
+		readingsBulkUpdate($hash,"AC_output_frequency",$values[3],1);
+		readingsBulkUpdate($hash,"AC_output_appearent_power",$values[4],1);
+		readingsBulkUpdate($hash,"AC_output_active_power",$values[5],1);
+		readingsBulkUpdate($hash,"Output_load_percent",$values[6],1);
+		readingsBulkUpdate($hash,"BUS_voltage",$values[7],1);
+		readingsBulkUpdate($hash,"Battery_actual_voltage",$values[8],1);
+		readingsBulkUpdate($hash,"Battery_charging_current",$values[9],1);
+		readingsBulkUpdate($hash,"Battery_capacity_percent",$values[10],1);
+		readingsBulkUpdate($hash,"Inverter_heat_sink_temperature",$values[11],1);
+		readingsBulkUpdate($hash,"PV_Input_current_for_battery",$values[12],1);
+		readingsBulkUpdate($hash,"PV_Input_voltage",$values[13],1);
+		readingsBulkUpdate($hash,"Battery_voltage_from_SCC",$values[14],1);
+		readingsBulkUpdate($hash,"Battery_discharge_current",$values[15],1);
+		readingsBulkUpdate($hash,"Device_Status",$values[16],1);
 	readingsEndUpdate($hash,1);
 	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
 	$success="success";
 	}	
 
-Log3($name,1, "effekta receive ready. _Line:" . __LINE__);
+Log3($name,1, "effekta receive ready. success: $success _Line:" . __LINE__);
 if($success eq "success"){
 	$hash->{helper}{key} = "";
 	$hash->{helper}{value} = "";
