@@ -9,19 +9,33 @@ use v5.10;
 
 
 my %requests = (
+#	'QPI' => "", ##  Device Protocol ID Inquiry
+#	'QID' => "", ## Device Serial Number Inquiry
+#	'QVFW' => "5156465732c3f50d", ## Main CPU Firmware version Inqiry
+#	'QVFW2' => "5156465732c3f50d", ## Another CPU Firmware version Inqiry
 	'QPIRI' => "5150495249f8540d", ## Device rating information Inquiry
+#	'QFLAG' => "51464c414798740d", Device Flag status Inquiry
 	'QPIGS' => "5150494753b7a90d", ## Device general Status parameters Inquiry
 	'QMOD' => "514d4f4449c10d" ## Device Mode inquiry
 #	'QPIWS' => "5150495753b4da0d", ##Device Warning Status Inquiry
+#	'QDI' => "514449711b0d", ## Default Setting Value Information
+#	'QMCHGCR' => "514d4348474352d8550d", ## Enquiry selectable value about max charging current
+#	'QMUCHGCR' => "514d55434847435226340d", ##Enquiry selectable value about max utility charging current
+#	'QBOOT' => "", ## Enquiry DSP has bootstrap or not
+#	'QOPM' => "", ## Enquiry output mode (For 4000/5000)
 #	'QPGS0' => "51504753303fda0d", ## Parallel Information Inquiry
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
+#	'' => "", ## 
 #	'QSID' => "51534944bb050d", ## nicht dokumentiert
 #	'QBEQI' => "51424851492ea90d", 
-#	'QVFW' => "5156465732c3f50d",
-#	'QDI' => "514449711b0d",
-#	'QFLAG' => "51464c414798740d",
 #	'QBEGI' => "51424551492ea90d", 
-#	'QMUCHGCR' => "514d55434847435226340d",
-#	'QMCHGC' => "514d4348474352d8550d"
 	);
 
 #####################################
@@ -109,6 +123,7 @@ if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
 
 Log3 $name, 4, "effekta ($name) - effekta_Notify got events @{$events} Line: " . __LINE__;	
 effekta_TimerGetData($hash) if( grep /^INITIALIZED$/,@{$events}
+				or grep /^CONNECTED$/,@{$events}
 				or grep /^DELETEATTR.$name.disable$/,@{$events}
 				or grep /^DELETEATTR.$name.interval$/,@{$events}
 				or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
@@ -194,7 +209,7 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 		readingsSingleUpdate($hash,'state','disabled',1);
 	}
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'effekta_TimerGetData', $hash);
-Log3 $name, 4, "effekta ($name) - call InternalTimer effekta_TimerGetData Line: " . __LINE__;	
+	Log3 $name, 4, "effekta ($name) - call InternalTimer effekta_TimerGetData Line: " . __LINE__;	
 }
 }
 ####################################
@@ -371,7 +386,7 @@ if($cmd eq "QPIRI") {
 	$success="success";
 	}	
 
-Log3($name,1, "effekta receive ready. success: $success _Line:" . __LINE__);
+Log3($name,1, "effekta analyze ready. success: $success _Line:" . __LINE__);
 if($success eq "success"){
 	$hash->{helper}{key} = "";
 	$hash->{helper}{value} = "";
