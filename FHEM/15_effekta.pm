@@ -147,24 +147,28 @@ sub effekta_Set($@){
 	my $usage = "Unknown argument $a[1], choose one of reopen:noArg stopRequest"; 
 	my $ret;
 	my $minInterval = 30;
-	Log3($name,1, "effekta argument $a[1] _Line: __LINE__" . __LINE__);
+	Log3($name,1, "effekta argument $a[1] _Line: " . __LINE__);
   	if ($a[1] eq "?"){
 	Log3($name,1, "effekta argument fragezeichen" . __LINE__);
 	return $usage;
 	}
 	if($a[1] eq "reopen"){
 		if(DevIo_IsOpen($hash)){
+			Log3($name,1, "Device is open, closing ... Line: " . __LINE__);
 			DevIo_CloseDev($hash);
-			Log3($name,1, "effekta Device closed" . __LINE__);
+			Log3($name,1, "effekta Device closed Line: " . __LINE__);
 		} 
-		Log3($name,1, "effekta_Set  Device is closed, trying to open" . __LINE__);
+		Log3($name,1, "effekta_Set  Device is closed, trying to open Line: " . __LINE__);
 		$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
 		while(!DevIo_IsOpen($hash)){
 			Log3($name,1, "effekta_Set  Device is closed, opening failed, retrying" . __LINE__);
 			$ret = DevIo_OpenDev($hash, 1, "effekta_DoInit" );
 			sleep 1;
 		}
-		return "device opened $ret";
+		if(DevIo_IsOpen($hash)){
+		effekta_TimerGetData($hash);
+		}
+		return "device opened?";
 	}
 	
 }
