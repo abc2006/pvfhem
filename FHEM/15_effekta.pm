@@ -9,15 +9,14 @@ use v5.10;
 
 
 my %requests = (
-#	'QPI' => "", ##  Device Protocol ID Inquiry
-#	'QID' => "", ## Device Serial Number Inquiry
-#	'QVFW' => "5156465732c3f50d", ## Main CPU Firmware version Inqiry
-#	'QVFW2' => "5156465732c3f50d", ## Another CPU Firmware version Inqiry
+	'QPI' => "515049beac1d", ##  Device Protocol ID Inquiry
+##	'QID' => "", ## Device Serial Number Inquiry
+	'QVFW' => "5156465762990d", ## Main CPU Firmware version Inqiry
+	'QVFW2' => "5156465732c3f50d", ## Another CPU Firmware version Inqiry
 	'QPIRI' => "5150495249f8540d", ## Device rating information Inquiry
-#	'QFLAG' => "51464c414798740d", Device Flag status Inquiry
+	'QFLAG' => "51464c414798740d", ##Device Flag status Inquiry
 	'QPIGS' => "5150494753b7a90d", ## Device general Status parameters Inquiry
-	'QMOD' => "514d4f4449c10d" ## Device Mode inquiry
-#	'QPIWS' => "5150495753b4da0d", ##Device Warning Status Inquiry
+	'QPIWS' => "5150495753b4da0d", ##Device Warning Status Inquiry
 #	'QDI' => "514449711b0d", ## Default Setting Value Information
 #	'QMCHGCR' => "514d4348474352d8550d", ## Enquiry selectable value about max charging current
 #	'QMUCHGCR' => "514d55434847435226340d", ##Enquiry selectable value about max utility charging current
@@ -29,13 +28,13 @@ my %requests = (
 #	'' => "", ## 
 #	'' => "", ## 
 #	'' => "", ## 
-#	'' => "", ## 
-#	'' => "", ## 
-#	'' => "", ## 
-#	'' => "", ## 
+#	'QRST' => "5152535472bc0d", ## nicht dokumentiert, NAKss
+#	'QMN' => "514d4ebb640d", ##nicht dokumentiert, NAKss 
+#	'QGMNI' => "51474d4e49290d", ##  nicht dokumentiert
 #	'QSID' => "51534944bb050d", ## nicht dokumentiert
-#	'QBEQI' => "51424851492ea90d", 
-#	'QBEGI' => "51424551492ea90d", 
+#	'QBEQI' => "51424851492ea90d", ## nicht dokumentiert VERMUTUNG: Equalisation function
+#	'QBEGI' => "51424551492ea90d", ## nicht dokumentierti
+	'QMOD' => "514d4f4449c10d" ## Device Mode inquiry
 	);
 
 #####################################
@@ -117,7 +116,7 @@ Log3 $name, 4, "effekta ($name) - effekta_Notify - not disabled  Line: " . __LIN
 return if (!$events);
 if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
 	Log3 $name, 4, "effekta ($name) - effekta_Notify change Interval to AttrVal($name,interval,120) _Line: " . __LINE__;	
-	$hash->{INTERVAL} = AttrVal($name,"interval",120);
+	$hash->{INTERVAL} = AttrVal($name,"interval",15);
 }
 
 
@@ -144,7 +143,7 @@ sub effekta_Undef($$)
 sub effekta_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of reopen:noArg stopRequest"; 
+	my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg"; 
 	my $ret;
 	my $minInterval = 30;
 	Log3($name,1, "effekta argument $a[1] _Line: " . __LINE__);
@@ -169,6 +168,12 @@ sub effekta_Set($@){
 		effekta_TimerGetData($hash);
 		}
 		return "device opened?";
+	} elsif ($a[1] eq "reset"){
+	$hash->{helper}{value} = "";
+	$hash->{helper}{key} = "";
+	@{$hash->{actionQueue}} = ();
+	Log3($name,1, "effekta_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__);
+	effekta_TimerGetData($hash);
 	}
 	
 }
@@ -188,7 +193,7 @@ sub effekta_Get($@){
 sub effekta_TimerGetData($){
 my $hash = shift;
 my $name = $hash->{NAME};
-Log3 $name, 4, "effekta ($name) - TimerGetData Line: " . __LINE__;	
+##Log3 $name, 4, "effekta ($name) - TimerGetData Line: " . __LINE__;	
 Log3 $name, 4, "effekta ($name) - action Queue 1: $hash->{actionQueue} Line: " . __LINE__;	
 Log3 $name, 4, "effekta ($name) - TimerGetData @{$hash->{actionQueue}}  Line: " . __LINE__;	
 if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
@@ -196,8 +201,8 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 	if( not IsDisabled($name) ) {
 		Log3 $name, 4, "effekta ($name) - is not disabled Line: " . __LINE__;	
 		while( my ($key,$value) = each %requests ){
-		Log3 $name, 4, "effekta ($name) - actionQueue filli: $key  Line: " . __LINE__;	
-		Log3 $name, 4, "effekta ($name) - actionQueue filli: $value  Line: " . __LINE__;	
+		Log3 $name, 4, "effekta ($name) - actionQueue fill: $key  Line: " . __LINE__;	
+		Log3 $name, 4, "effekta ($name) - actionQueue fill: $value  Line: " . __LINE__;	
 			unshift( @{$hash->{actionQueue}}, $value );
 			unshift( @{$hash->{actionQueue}}, $key );
 			#My $hash = (
@@ -214,6 +219,9 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 	}
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'effekta_TimerGetData', $hash);
 	Log3 $name, 4, "effekta ($name) - call InternalTimer effekta_TimerGetData Line: " . __LINE__;	
+}else {
+	Log3 $name, 4, "effekta ($name) - call effekta_sendRequests Line: " . __LINE__;	
+	effekta_sendRequests($hash);
 }
 }
 ####################################
@@ -319,8 +327,8 @@ if($cmd eq "QPIRI") {
 			
 						## 0 = AGM, 1 = Flooded, 2 = User
 						readingsBulkUpdate($hash,"Battery_type",$values[12],1);
-						readingsBulkUpdate($hash,"Current_max_AC_charging_current",$values[13],1);
-						readingsBulkUpdate($hash,"Current_max_charging_current",$values[14],1);
+						readingsBulkUpdate($hash,"Current_max_AC_charging_current",int($values[13]),1);
+						readingsBulkUpdate($hash,"Current_max_charging_current",int($values[14]),1);
 						
 						# 0 = Appliance, 1 = UPS
 						readingsBulkUpdate($hash,"Input_voltage_range",$values[15],1);
@@ -350,17 +358,50 @@ if($cmd eq "QPIRI") {
 	my $a = $values[0];
 	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
 	my $r;
-	given($a) {
-		when($a eq "P") {$r = "Power on Mode";}
-		when($a eq "S") {$r = "Standby Mode";}
-		when($a eq "L") {$r = "Line Mode";}
-		when($a eq "B") {$r = "Battery Mode";}
-		when($a eq "F") {$r = "Fault Mode";}
-		when($a eq "H") {$r = "Power saving Mode";}
-	}
+	if($a eq "P") {$r = "Power on Mode";}
+	elsif($a eq "S") {$r = "Standby Mode";}
+	elsif($a eq "L") {$r = "Line Mode";}
+	elsif($a eq "B") {$r = "Battery Mode";}
+	elsif($a eq "F") {$r = "Fault Mode";}
+	elsif($a eq "H") {$r = "Power saving Mode";}
+
 	Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
 		readingsBulkUpdate($hash,"Device_Mode",$r,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QFLAG") {
+	Log3($name,1, "effekta cmd: analysiere QMOD _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	my ($E,$D) = split(/D/, $a);
+	my %flags = ();
+##		'Silence_Buzzer' => "",
+##		'Overload_Bypass_Function' => "",	
+##		'Power_Saving' => "",	
+##		'LCD_escape_to_default' => "",	
+##		'Overload_restart' => "",	
+###		'Overtemperature_restart' => "",	
+##		'backlight_always_on' => "",	
+##		'Alarm_on_pri_src_interrupt' => "",	
+##		'Fault_Code_Record' => "",	
+##	);
+	if($E =~ m/a/) {$flags{'Silence_Buzzer'} = "enabled";} elsif($D =~ m/a/)  {$flags{'Silence_Buzzer'} = "disabled";} 
+	if($E =~ m/b/) {$flags{'Overload_Bypass_Function'} = "enabled";} elsif($D =~ m/b/)  {$flags{'Overload_Bypass_Function'} = "disabled";} 
+	if($E =~ m/j/) {$flags{'Power_Saving'} = "enabled";} elsif($D =~ m/j/)  {$flags{'Power_Saving'} = "disabled";} 
+	if($E =~ m/k/) {$flags{'LCD_escape_to_default'} = "enabled";} elsif($D =~ m/k/)  {$flags{'LCD_escape_to_default'} = "disabled";} 
+	if($E =~ m/u/) {$flags{'Overload_restart'} = "enabled";} elsif($D =~ m/u/)  {$flags{'Overload_restart'} = "disabled";} 
+	if($E =~ m/v/) {$flags{'Overtemperature_restart'} = "enabled";} elsif($D =~ m/v/)  {$flags{'Overtemperature_restart'} = "disabled";} 
+	if($E =~ m/x/) {$flags{'backlight_always_on'} = "enabled";} elsif($D =~ m/x/)  {$flags{'backlight_always_on'} = "disabled";} 
+	if($E =~ m/y/) {$flags{'Alarm_on_pri_src_interrupt'} = "enabled";} elsif($D =~ m/y/)  {$flags{'Alarm_on_pri_src_interrupt'} = "disabled";} 
+	if($E =~ m/z/) {$flags{'Fault_Code_Record'} = "enabled";} elsif($D =~ m/z/)  {$flags{'Fault_Code_Record'} = "disabled";} 
+
+	readingsBeginUpdate($hash);
+	foreach my $key (%flags){
+		readingsBulkUpdate($hash,$key,%flags{$key},1);
+	}
 	readingsEndUpdate($hash,1);
 			
 	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
@@ -372,23 +413,156 @@ if($cmd eq "QPIRI") {
 		readingsBulkUpdate($hash,"Grid_frequency",$values[1],1);
 		readingsBulkUpdate($hash,"AC_output_voltage",$values[2],1);
 		readingsBulkUpdate($hash,"AC_output_frequency",$values[3],1);
-		readingsBulkUpdate($hash,"AC_output_appearent_power",$values[4],1);
-		readingsBulkUpdate($hash,"AC_output_active_power",$values[5],1);
-		readingsBulkUpdate($hash,"Output_load_percent",$values[6],1);
+		readingsBulkUpdate($hash,"AC_output_appearent_power",int($values[4]),1);
+		readingsBulkUpdate($hash,"AC_output_active_power",int($values[5]),1);
+		readingsBulkUpdate($hash,"Output_load_percent",int($values[6]),1);
 		readingsBulkUpdate($hash,"BUS_voltage",$values[7],1);
 		readingsBulkUpdate($hash,"Battery_actual_voltage",$values[8],1);
-		readingsBulkUpdate($hash,"Battery_charging_current",$values[9],1);
-		readingsBulkUpdate($hash,"Battery_capacity_percent",$values[10],1);
-		readingsBulkUpdate($hash,"Inverter_heat_sink_temperature",$values[11],1);
-		readingsBulkUpdate($hash,"PV_Input_current_for_battery",$values[12],1);
-		readingsBulkUpdate($hash,"PV_Input_voltage",$values[13],1);
+		readingsBulkUpdate($hash,"Battery_charging_current",int($values[9]),1);
+		readingsBulkUpdate($hash,"Battery_capacity_percent",int($values[10]),1);
+		readingsBulkUpdate($hash,"Inverter_heat_sink_temperature",int($values[11]),1);
+		readingsBulkUpdate($hash,"PV_Input_current_for_battery",int($values[12]),1);
+		readingsBulkUpdate($hash,"PV_Input_voltage",int(10*$values[13])/10,1);
 		readingsBulkUpdate($hash,"Battery_voltage_from_SCC",$values[14],1);
-		readingsBulkUpdate($hash,"Battery_discharge_current",$values[15],1);
+		readingsBulkUpdate($hash,"Battery_discharge_current",int($values[15]),1);
 		readingsBulkUpdate($hash,"Device_Status",$values[16],1);
 	readingsEndUpdate($hash,1);
 	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
 	$success="success";
-	}	
+}elsif($cmd eq "QPIWS") {
+	Log3($name,1, "effekta cmd: analysiere QMOD _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	my $r; 
+	if(int($a) == 0){
+	$r = "no Error";
+	}else{
+	my @b = split(//,$a);
+	if($b[0] == 1) {$r = "Reserved - no Error";}
+	elsif($b[1] == 1) {$r = "Inverter - Fault";}
+	elsif($b[2] == 1) {$r = "Bus Over (Voltage?) - Fault";}
+	elsif($b[3] == 1) {$r = "Bus Under (Voltage?) - Fault";}
+	elsif($b[4] == 1) {$r = "Bus Soft Fail - Fault";}
+	elsif($b[5] == 1) {$r = "LINE_FAIL - Warning";}
+	elsif($b[6] == 1) {$r = "OPVShort - Warning";}
+	elsif($b[7] == 1) {$r = "Inverter Voltage too low - Fault";}
+	elsif($b[8] == 1) {$r = "Inverter Voltage too high - Fault";}
+	elsif($b[9] == 1) {
+		$r = "Over temperature -";
+		$r .= $b[1] == 1 ? "Fault":"Warning";			
+		}
+	elsif($b[10] == 1) {
+		$r = "Fan locked";
+		$r .= $b[1] == 1 ? "Fault":"Warning";			
+	}
+	elsif($b[11] == 1) {
+		$r = "Battery Voltage High";
+		$r .= $b[1] == 1 ? "Fault":"Warning";			
+	}
+	elsif($b[12] == 1) {$r = "Battery Low Alarm - Warning";}
+	elsif($b[13] == 1) {$r = "Reserved - no Error";}
+	elsif($b[14] == 1) {$r = "Battery under shutdown - Warning";}
+	elsif($b[15] == 1) {$r = "Reserved, but still a Warning";}
+	elsif($b[16] == 1) {
+		$r = "Overload - ";
+		$r .= $b[1] == 1 ? "Fault":"Warning";			
+	}
+	elsif($b[17] == 1) {$r = "EEPROM - Fault";}
+	elsif($b[18] == 1) {$r = "Inverter Over Current - Fault";}
+	elsif($b[19] == 1) {$r = "Inverter Soft Fail - Fault";}
+	elsif($b[20] == 1) {$r = "Self Test Fail - Fault";}
+	elsif($b[21] == 1) {$r = "OP DC Voltage Over - Fault";}
+	elsif($b[22] == 1) {$r = "Bat Open - Fault";}
+	elsif($b[23] == 1) {$r = "Current Sensor Fail - Fault";}
+	elsif($b[24] == 1) {$r = "Battery Short - Fault";}
+	elsif($b[25] == 1) {$r = "Power Limit - Warning";}
+	elsif($b[26] == 1) {$r = "PV Voltage High - Warning";}
+	elsif($b[27] == 1) {$r = "MPPT Overload Fault - Warning";}
+	elsif($b[28] == 1) {$r = "MPPT Overload Warning - Warning";}
+	elsif($b[29] == 1) {$r = "Battery too low to charge - Warning";}
+	elsif($b[30] == 1) {$r = "Reserved - no Error";}
+	elsif($b[31] == 1) {$r = "Reserved - no Error";}
+	}
+	Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Device_warning",$r,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QVFW") {
+	Log3($name,1, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Main_CPU_Firmware_Version",$a,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QVFW2") {
+	Log3($name,1, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Another_Firmware_CPU_version",$a,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QID") {
+	Log3($name,1, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Device_Serial_Number",$a,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QPI") {
+	Log3($name,1, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Device_Protocol_ID",$a,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "SPARE") {
+	Log3($name,1, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,1, "effekta uebergeben: $a _Line:" . __LINE__);
+	my $r;
+	if($a eq "P") {$r = "Power on Mode";}
+	elsif($a eq "S") {$r = "Standby Mode";}
+	elsif($a eq "L") {$r = "Line Mode";}
+	elsif($a eq "B") {$r = "Battery Mode";}
+	elsif($a eq "F") {$r = "Fault Mode";}
+	elsif($a eq "H") {$r = "Power saving Mode";}
+
+	Log3($name,1, "effekta analyse: QMOD. Entscheidung für $r _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"Device_Mode",$r,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+} else {
+	Log3($name,1,"effekta cmd " . $cmd . " not implemented yet, putting values in _devel<nr>, Line: " . __LINE__);	
+	readingsBeginUpdate($hash);
+	my $i = 0;
+	foreach (@values) 
+	{
+ 		Log3($name,1,"effekta cmd unknown, putting $values[$i] in _devel_$i");	
+		readingsBulkUpdate($hash, "_devel_" . $i,$values[$i],1);
+		$i++;
+	}
+	readingsEndUpdate($hash,1);
+	Log3($name,1, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}
 
 Log3($name,1, "effekta analyze ready. success: $success _Line:" . __LINE__);
 if($success eq "success"){
