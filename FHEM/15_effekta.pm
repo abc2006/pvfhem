@@ -5,24 +5,23 @@ package main;
 
 use strict;
 use warnings;
-use v5.10;
-
+use Digest::CRC qw(crc);
 
 my %requests = (
 	'QPI' => "515049beac0d", ##  Device Protocol ID Inquiry
-##	'QID' => "", ## Device Serial Number Inquiry
+##	'QID' => "514944d6ea0d", ## Device Serial Number Inquiry
 	'QVFW' => "5156465762990d", ## Main CPU Firmware version Inqiry
 	'QVFW2' => "5156465732c3f50d", ## Another CPU Firmware version Inqiry
 	'QPIRI' => "5150495249f8540d", ## Device rating information Inquiry
 	'QFLAG' => "51464c414798740d", ##Device Flag status Inquiry
 	'QPIGS' => "5150494753b7a90d", ## Device general Status parameters Inquiry
 	'QPIWS' => "5150495753b4da0d", ##Device Warning Status Inquiry
-#	'QDI' => "514449711b0d", ## Default Setting Value Information
-#	'QMCHGCR' => "514d4348474352d8550d", ## Enquiry selectable value about max charging current
-#	'QMUCHGCR' => "514d55434847435226340d", ##Enquiry selectable value about max utility charging current
-#	'QBOOT' => "", ## Enquiry DSP has bootstrap or not
-#	'QOPM' => "", ## Enquiry output mode (For 4000/5000)
-#	'QPGS0' => "51504753303fda0d", ## Parallel Information Inquiry
+#	'QDI' => "514449711b0d", ## Default Setting Value Information - default settings - needed to restore defaults, in the software
+#	'QMCHGCR' => "514d4348474352d8550d", ## Enquiry selectable value about max charging current - needed for creating the dropdown in the software
+#	'QMUCHGCR' => "514d55434847435226340d", ##Enquiry selectable value about max utility charging current - needed for creating the dropdown in the software
+#	'QBOOT' => "51424f4f540a88", ## Enquiry DSP has bootstrap or not
+#	'QOPM' => "514f504da5c50d", ## Enquiry output mode (For 4000/5000)
+#	'QPGS0' => "51504753303fda0d", ## Parallel Information Inquiry. same values as in QPIGS
 #	'' => "", ## 
 #	'' => "", ## 
 #	'' => "", ## 
@@ -30,10 +29,10 @@ my %requests = (
 #	'' => "", ## 
 #	'QRST' => "5152535472bc0d", ## nicht dokumentiert, NAKss
 #	'QMN' => "514d4ebb640d", ##nicht dokumentiert, NAKss 
-#	'QGMNI' => "51474d4e49290d", ##  nicht dokumentiert
-#	'QSID' => "51534944bb050d", ## nicht dokumentiert
-#	'QBEQI' => "51424851492ea90d", ## nicht dokumentiert VERMUTUNG: Equalisation function
-#	'QBEGI' => "51424551492ea90d", ## nicht dokumentierti
+	'QGMNI' => "51474d4e49290d", ##  nicht dokumentiert
+	'QSID' => "51534944bb050d", ## nicht dokumentiert
+#	'QBEQI' => "51424851492ea90d", ## nicht dokumentiert VERMUTUNG: Equalisation function - liefert keine Antwort
+	'QBEGI' => "51424551492ea90d", ## nicht dokumentierti
 	'QMOD' => "514d4f4449c10d" ## Device Mode inquiry
 	);
 
@@ -139,6 +138,9 @@ sub effekta_Undef($$)
   my ($hash, $name) = @_;
   DevIo_CloseDev($hash);         
   RemoveInternalTimer($hash);
+  RemoveInternalTimer("resend:$name");
+  RemoveInternalTimer("next:$name");
+  RemoveInternalTimer("first:$name");
   return undef;
 }
 #####################################
@@ -148,9 +150,9 @@ sub effekta_Set($@){
 	my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg"; 
 	my $ret;
 	my $minInterval = 30;
-	Log3($name,1, "effekta argument $a[1] _Line: " . __LINE__);
+	Log3($name,5, "effekta argument $a[1] _Line: " . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,1, "effekta argument fragezeichen" . __LINE__);
+	Log3($name,5, "effekta argument fragezeichen" . __LINE__);
 	return $usage;
 	}
 	if($a[1] eq "reopen"){
@@ -180,12 +182,41 @@ sub effekta_Set($@){
 sub effekta_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of updateNb updateBlk"; 
-	Log3($name,1, "effekta argument $a[1]_Line: " . __LINE__);
+	my $usage = "Unknown argument $a[1], choose one of calcHex"; 
+	Log3($name,5, "effekta argument $a[1]_Line: " . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,1, "effekta argument fragezeichen_Line: " . __LINE__);
+	Log3($name,5, "effekta argument fragezeichen_Line: " . __LINE__);
 	return $usage;
 	}
+#	my $value="QPI";
+#	my $hex = unpack("H*", $value);
+#my @s=( { 's'=>"An Arbitrary String", 'crc16'=>"DDFC", 'crc32'=>"90415518" },
+#       { 's'=>"ZYXWVUTSRQPONMLKJIHGFEDBCA", 'crc16'=>"B199", 'crc32'=>"6632024D (not xored)" },
+#   );
+#	my @list = (crc16($hex) =~ /(..)/g);
+
+#	my $finale =  map { pack ("H2", $_) } @list;
+
+##	'QPI' => "515049beac0d", ##  Device Protocol ID Inquiry
+#	my $input="QPI";
+#	my $width=16;
+#	my $init="0x0000";
+#	my $xorout="0x0000";
+#	my $refout="false";
+#       	my $poly="0x1021";
+#	my $refin="false";
+#	my $cont=1;
+	#check=0x31c3 
+	#residue=0x0000 
+	#name="CRC-16/XMODEM"
+	
+#my 	$crc = crc($input,$width,$init,$xorout,$refout,$poly,$refin,$cont);
+
+#     	my $finale = crc("QPI",16,0x0000,i);
+#	Log3($name,1, "effekta get $crc _Line: " . __LINE__);
+
+
+
 }
 
 ############################################
@@ -228,14 +259,18 @@ my ($calltype,$name) = split(':', $_[0]);
 my $hash = $defs{$name};
 Log3 $name, 5, "effekta ($name) - effekta_sendRequests calltype $calltype  Line: " . __LINE__;	
 
-if($hash->{helper}{key} eq ""){
+if($hash->{helper}{key} eq "" || $hash->{helper}{retrycount} > 10)
+{
 	$hash->{helper}{value} = pop( @{$hash->{actionQueue}} );
 	$hash->{helper}{key} = pop( @{$hash->{actionQueue}} );
+	 $hash->{helper}{retrycount} = 0;
 	Log3 $name, 4, "effekta ($name) - effekta_sendRequests key == '', next one  Line: " . __LINE__;	
 }else{
 	$hash->{helper}{retrycount}++;
 	Log3 $name, 4, "effekta ($name) - effekta_sendRequests key != '', again. retryCount is  $hash->{helper}{retrycount} Line: " . __LINE__;	
 }
+
+
 Log3 $name, 4, "effekta ($name) - effekta_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;	
 Log3 $name, 4, "effekta ($name) - effekta_sendRequests key: $hash->{helper}{key}  Line: " . __LINE__;	
 $hash->{helper}{recv} = "";
@@ -304,9 +339,14 @@ sub effekta_analyze_answer($@){
 
 	if($values[0] =~ /NAK/){
 		Log3($name,5, "effekta analysiere $values[0] _Line:" . __LINE__);
-		Log3($name,5, "effekta Keine Gültige Antwort. Abbruch. _Line:" . __LINE__);
+		Log3($name,5, "effekta Keine Gültige Abfrage, Antwort fehlerfrei. Abbruch. _Line:" . __LINE__);
 		##effekta_blck_doInternalUpdate($hash); 
-		return;
+			$hash->{helper}{key} = "";
+		$hash->{helper}{value} = "";
+		$hash->{helper}{retrycount} = "";
+		Log3($name, 5, "effekta ($name) - effekta_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
+		RemoveInternalTimer("resend:$name");
+return;
 	}
 
 if($cmd eq "QPIRI") {
@@ -427,6 +467,10 @@ if($cmd eq "QPIRI") {
 		readingsBulkUpdate($hash,"Battery_voltage_from_SCC",$values[14],1);
 		readingsBulkUpdate($hash,"Battery_discharge_current",int($values[15]),1);
 		readingsBulkUpdate($hash,"Device_Status",$values[16],1);
+		readingsBulkUpdate($hash,"QPIGS_17",$values[17],1);
+		readingsBulkUpdate($hash,"QPIGS_18",$values[18],1);
+		readingsBulkUpdate($hash,"PV_input_actual_power",$values[19],1);
+		readingsBulkUpdate($hash,"QPIGS_20",$values[20],1);
 	readingsEndUpdate($hash,1);
 	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
 	$success="success";
@@ -493,7 +537,7 @@ if($cmd eq "QPIRI") {
 	$success="success";
 }elsif($cmd eq "QVFW") {
 	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
-	my $a = $values[0];
+	my ($b,$a) =split(":",$values[0]);
 	Log3($name,5, "effekta uebergeben: $a _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
 		readingsBulkUpdate($hash,"Main_CPU_Firmware_Version",$a,1);
@@ -503,7 +547,7 @@ if($cmd eq "QPIRI") {
 	$success="success";
 }elsif($cmd eq "QVFW2") {
 	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
-	my $a = $values[0];
+	my ($b,$a) =split(":",$values[0]);
 	Log3($name,5, "effekta uebergeben: $a _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
 		readingsBulkUpdate($hash,"Another_Firmware_CPU_version",$a,1);
@@ -531,6 +575,60 @@ if($cmd eq "QPIRI") {
 			
 	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
 	$success="success";
+}elsif($cmd eq "QGMNI") {
+	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	my $a = $values[0];
+	Log3($name,5, "effekta uebergeben: $a _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"QGMNI_unknown",$a,1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QBEQI") {
+	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+	my $i = 0;
+	foreach(@values)
+	{
+		Log3($name,5, "effekta $a _Line:" . __LINE__);
+		readingsBulkUpdate($hash,$cmd . "_$i",$values[$i],1);
+		$i++;
+	}
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QBEGI") {
+	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+		readingsBulkUpdate($hash,"QBEGI_0",$values[0],1);
+		readingsBulkUpdate($hash,"Battery_equalisation_duration_minutes",$values[1],1);
+		readingsBulkUpdate($hash,"Battery_equalisation_interval_days",$values[2],1);
+		readingsBulkUpdate($hash,"Battery_charge_maximum_total_current",$values[3],1);
+		readingsBulkUpdate($hash,"QBEGI_4",$values[4],1);
+		readingsBulkUpdate($hash,"Battery_equalisation_voltage",$values[5],1);
+		readingsBulkUpdate($hash,"QBEGI_0",$values[6],1);
+		readingsBulkUpdate($hash,"Battery_equalisation_timeout_minutes",$values[7],1);
+		readingsBulkUpdate($hash,"QBEGI_0",$values[8],1);
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
+}elsif($cmd eq "QSID") {
+	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
+	readingsBeginUpdate($hash);
+	my $i = 0;
+	foreach(@values)
+	{
+		Log3($name,5, "effekta $cmd _$i $values[$i] _Line:" . __LINE__);
+		readingsBulkUpdate($hash,"QSID_$i",$values[$i],1);
+		$i++;
+	}
+	readingsEndUpdate($hash,1);
+			
+	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
+	$success="success";
 }elsif($cmd eq "SPARE") {
 	Log3($name,4, "effekta cmd: analysiere $cmd _Line:" . __LINE__);
 	my $a = $values[0];
@@ -551,12 +649,12 @@ if($cmd eq "QPIRI") {
 	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
 	$success="success";
 } else {
-	Log3($name,4,"effekta cmd " . $cmd . " not implemented yet, putting values in _devel<nr>, Line: " . __LINE__);	
+	Log3($name,1,"effekta cmd " . $cmd . " not implemented yet, putting values in _devel<nr>, Line: " . __LINE__);	
 	readingsBeginUpdate($hash);
 	my $i = 0;
 	foreach (@values) 
 	{
- 		Log3($name,1,"effekta cmd unknown, putting $values[$i] in _devel_$i");	
+ 		Log3($name,1,"effekta cmd  $cmd unknown, putting $values[$i] in _devel_$i");	
 		readingsBulkUpdate($hash, "_devel_" . $i,$values[$i],1);
 		$i++;
 	}
