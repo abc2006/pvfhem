@@ -50,9 +50,11 @@ effekta_Initialize($)
   $hash->{NotifyFn}    = "effekta_Notify";
   $hash->{ReadFn}    = "effekta_Read";
   $hash->{ReadyFn}    = "effekta_Ready";
-  $hash->{AttrList}  = "interval Anschluss ".
+  $hash->{AttrList}  = "interval Anschluss unknown_as_reading:yes,no ".
                         $readingFnAttributes;
 
+  $hash->{helper}{value} = "";
+  $hash->{helper}{key} = "";
 }
 
 #####################################
@@ -258,6 +260,12 @@ sub effekta_sendRequests($){
 my ($calltype,$name) = split(':', $_[0]);
 my $hash = $defs{$name};
 Log3 $name, 5, "effekta ($name) - effekta_sendRequests calltype $calltype  Line: " . __LINE__;	
+if($calltype eq "resend" && $hash->{helper}{recv} eq ""){
+
+	$hash->{CONNECTION} = "timeout";
+	readingsSingleUpdate($hash, "_status","communication failed",1);
+}
+
 
 if($hash->{helper}{key} eq "" || $hash->{helper}{retrycount} > 10)
 {
@@ -284,7 +292,8 @@ sub effekta_Read($$)
 
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
-	
+	$hash->{CONNECTION} = "established";
+	readingsSingleUpdate($hash, "_status","communication in progress",1);
 	Log3($name,4, "effekta jetzt wird gelesen _Line:" . __LINE__);
 	# read from serial device
 	#
@@ -295,6 +304,7 @@ sub effekta_Read($$)
 	{ 
 		
 		Log3($name,1, "effekta Fehler beim lesen _Line:" . __LINE__);
+		$hash->{CONNECTION} = "failed";
 		return "error" ;
 	}
  	# es geht los mit 0x28 und hört auf mit 0x0d - eigentlich.	
@@ -321,6 +331,9 @@ sub effekta_Read($$)
 		Log3 $name, 4, "effekta ($name) - effekta_ReadFn Noch nicht alle Abfragen gesendet, rufe sendRequests wieder auf  Line: " . __LINE__;	
 		Log3 $name, 4, "effekta ($name) - effekta_ReadFn Noch anstehende Abfragen:  @{$hash->{actionQueue}} Line: " . __LINE__;	
 		effekta_sendRequests("next:$name");
+	}else{
+	
+	readingsSingleUpdate($hash, "_status","communication finished, standby",1);
 	}
 	}
  
@@ -469,7 +482,7 @@ if($cmd eq "QPIRI") {
 		readingsBulkUpdate($hash,"Device_Status",$values[16],1);
 		readingsBulkUpdate($hash,"QPIGS_17",$values[17],1);
 		readingsBulkUpdate($hash,"QPIGS_18",$values[18],1);
-		readingsBulkUpdate($hash,"PV_input_actual_power",$values[19],1);
+		readingsBulkUpdate($hash,"PV_input_actual_power",int($values[19]),1);
 		readingsBulkUpdate($hash,"QPIGS_20",$values[20],1);
 	readingsEndUpdate($hash,1);
 	Log3($name,5, "effekta $cmd successful _Line:" . __LINE__);
@@ -655,7 +668,9 @@ if($cmd eq "QPIRI") {
 	foreach (@values) 
 	{
  		Log3($name,1,"effekta cmd  $cmd unknown, putting $values[$i] in _devel_$i");	
-		readingsBulkUpdate($hash, "_devel_" . $i,$values[$i],1);
+		if( AttrVal($name,"unknown_as_reading",0) eq "yes" ){
+			readingsBulkUpdate($hash, "_devel_" . $i,$values[$i],1);
+		}
 		$i++;
 	}
 	readingsEndUpdate($hash,1);
@@ -665,6 +680,7 @@ if($cmd eq "QPIRI") {
 
 Log3($name,5, "effekta analyze ready. success: $success _Line:" . __LINE__);
 if($success eq "success"){
+	$hash->{CONNECTION} = "established";
 	$hash->{helper}{key} = "";
 	$hash->{helper}{value} = "";
 	$hash->{helper}{retrycount} = "";
