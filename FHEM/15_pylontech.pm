@@ -296,7 +296,7 @@ my $send = "7E" . unpack("H*", $hash->{helper}{value}) . "0D";
 Log3 $name, 3, "pylontech ($name) - pylontech_sendRequests sendString: $send  Line: " . __LINE__;	
 
 DevIo_SimpleWrite($hash,$send,1);
-##InternalTimer(gettimeofday()+2,'pylontech_sendRequests',"resend:$name");
+InternalTimer(gettimeofday()+2,'pylontech_sendRequests',"resend:$name");
 	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests starte resend-timer.Line: " . __LINE__;	
 }
 #####################################
