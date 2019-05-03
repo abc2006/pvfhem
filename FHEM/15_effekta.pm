@@ -75,8 +75,7 @@ if(@a < 3 || @a > 5){
   ## $hash->DeviceName keeps the name of the io-Device. Without this, DevIO does not work.
   $hash->{DeviceName} = $device;
   $hash->{NOTIFYDEV} 	= "global";
-  $hash->{INTERVAL} 	= 120 ;
-  $hash->{INTERVAL} = AttrVal($name,"interval",120);
+  $hash->{INTERVAL} = AttrVal($name,"interval",60);
   $hash->{actionQueue} 	= [];	
 #close connection if maybe open (on definition modify)
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
@@ -118,8 +117,8 @@ my $events = deviceEvents($dev,1);
 Log3 $name, 4, "effekta ($name) - effekta_Notify - not disabled  Line: " . __LINE__;	
 return if (!$events);
 if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
-	Log3 $name, 4, "effekta ($name) - effekta_Notify change Interval to AttrVal($name,interval,120) _Line: " . __LINE__;	
-	$hash->{INTERVAL} = AttrVal($name,"interval",15);
+	Log3 $name, 4, "effekta ($name) - effekta_Notify change Interval to AttrVal($name,interval,60) _Line: " . __LINE__;	
+	$hash->{INTERVAL} = AttrVal($name,"interval",60);
 }
 
 

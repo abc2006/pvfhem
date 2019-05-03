@@ -59,8 +59,7 @@ if(@a < 3 || @a > 5){
   ## $hash->DeviceName keeps the name of the io-Device. Without this, DevIO does not work.
   $hash->{DeviceName} = $device;
   $hash->{NOTIFYDEV} 	= "global";
-##  $hash->{INTERVAL} 	= 120 ;
-  $hash->{INTERVAL} = AttrVal($name,"interval",120);
+  $hash->{INTERVAL} = AttrVal($name,"interval",60);
   $hash->{actionQueue} 	= [];	
 #close connection if maybe open (on definition modify)
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
@@ -102,8 +101,8 @@ my $events = deviceEvents($dev,1);
 Log3 $name, 4, "pylontech ($name) - pylontech_Notify - not disabled  Line: " . __LINE__;	
 return if (!$events);
 if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
-	Log3 $name, 4, "pylontech ($name) - pylontech_Notify change Interval to AttrVal($name,interval,120) _Line: " . __LINE__;	
-	$hash->{INTERVAL} = AttrVal($name,"interval",15);
+	Log3 $name, 4, "pylontech ($name) - pylontech_Notify change Interval to AttrVal($name,interval,60) _Line: " . __LINE__;	
+	$hash->{INTERVAL} = AttrVal($name,"interval",60);
 }
 
 
@@ -504,7 +503,13 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	readingsBulkUpdate($hash,"Pack_$1_Temp3",(hex(substr($value,76,4))-2731)/10,1);
 	readingsBulkUpdate($hash,"Pack_$1_Temp4",(hex(substr($value,80,4))-2731)/10,1);
 	readingsBulkUpdate($hash,"Pack_$1_Temp5",(hex(substr($value,84,4))-2731)/10,1);
-	readingsBulkUpdate($hash,"Pack_$1_Strom",hex(substr($value,88,4))/10,1);
+	
+##	my $current = hex(substr($value,88,4))/10;
+	my $current = unpack('s', pack('S', hex(substr($value,88,4))))/10;
+##	$current -= 0x100000000 if $current >= 0x800000;
+
+	readingsBulkUpdate($hash,"Pack_$1_Strom",$current,1);
+	Log3($name,5, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Spannung",hex(substr($value,92,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_left",hex(substr($value,96,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_unbekannt_hex",substr($value,100,2),1);
