@@ -65,17 +65,16 @@ if(@a < 3 || @a > 5){
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "pylontech_DoInit" );
   Log3($name, 1, "pylontech DevIO_OpenDev_Define" . __LINE__); 
+ InternalTimer( gettimeofday()+i2, 'pylontech_TimerGetData', $hash);
   return $ret;
 }
 
 
-sub
-pylontech_DoInit($)
+sub pylontech_DoInit($)
 {
  my ($hash) = @_;
  my $name = $hash->{NAME};
  Log3($name, 2, "DoInitfkt");
- pylontech_TimerGetData($hash);
 }
 ###########################################
 #_ready-function for reconnecting the Device
@@ -135,9 +134,9 @@ sub pylontech_Set($@){
 	my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg"; 
 	my $ret;
 	my $minInterval = 30;
-	Log3($name,5, "pylontech argument $a[1] _Line: " . __LINE__);
+	Log3($name,4, "pylontech argument $a[1] _Line: " . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,5, "pylontech argument fragezeichen" . __LINE__);
+	Log3($name,4, "pylontech argument fragezeichen" . __LINE__);
 	return $usage;
 	}
 	if($a[1] eq "reopen"){
@@ -203,7 +202,7 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 		readingsSingleUpdate($hash,'state','disabled',1);
 	}
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'pylontech_TimerGetData', $hash);
-	Log3 $name, 4, "pylontech ($name) _TimerGetData - call InternalTimer pylontech_TimerGetData Line: " . __LINE__;	
+	Log3 $name, 4, "pylontech ($name) _TimerGetData - call InternalTimer pylontech_TimerGetData delay: $hash->{INTERVAL} Line: " . __LINE__;	
 }else {
 	Log3 $name, 4, "pylontech ($name) _TimerGetData - call pylontech_sendRequests Line: " . __LINE__;	
 	pylontech_sendRequests("next:$name");
@@ -213,7 +212,7 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 sub pylontech_sendRequests($){
 my ($calltype,$name) = split(':', $_[0]);
 my $hash = $defs{$name};
-Log3 $name, 5, "pylontech ($name) - pylontech_sendRequests calltype $calltype  Line: " . __LINE__;	
+Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests calltype $calltype  Line: " . __LINE__;	
 if($calltype eq "resend" && $hash->{helper}{recv} eq ""){
 
 	$hash->{CONNECTION} = "timeout";
@@ -304,9 +303,9 @@ sub pylontech_Read($$)
 
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
-	$hash->{CONNECTION} = "established";
-	readingsSingleUpdate($hash, "_status","communication in progress",1);
-	Log3($name,4, "pylontech jetzt wird gelesen _Line:" . __LINE__);
+	##$hash->{CONNECTION} = "reading from Device";
+	##readingsSingleUpdate($hash, "_status","reading from Device",1);
+	Log3($name,5, "pylontech jetzt wird gelesen _Line:" . __LINE__);
 	# read from serial device
 	#
 	
@@ -381,13 +380,13 @@ sub pylontech_Read($$)
 	}
 	
 	my @splits = split(" ",$empfang{'INFO'});
-	Log3($name,5, "pylontech ver: $empfang{'Ver'}");
-	Log3($name,5, "pylontech ADR: $empfang{'ADR'}");
-	Log3($name,5, "pylontech CID1: $empfang{'CID1'}");
-	Log3($name,5, "pylontech CID2: $empfang{'CID2'}");
-	Log3($name,5, "pylontech LENHEX: $empfang{'LENHEX'}");
-	Log3($name,5, "pylontech LEN: $empfang{'LEN'}");
-	Log3($name,5, "pylontech INFO: $empfang{'INFO'}");
+	Log3($name,4, "pylontech ver: $empfang{'Ver'}");
+	Log3($name,4, "pylontech ADR: $empfang{'ADR'}");
+	Log3($name,4, "pylontech CID1: $empfang{'CID1'}");
+	Log3($name,4, "pylontech CID2: $empfang{'CID2'}");
+	Log3($name,4, "pylontech LENHEX: $empfang{'LENHEX'}");
+	Log3($name,4, "pylontech LEN: $empfang{'LEN'}");
+	Log3($name,4, "pylontech INFO: $empfang{'INFO'}");
 	pylontech_analyze_answer($hash, $empfang{'INFO'});
 
 
@@ -412,38 +411,38 @@ sub pylontech_analyze_answer($$){
 	my $name = $hash->{NAME};
 	my $cmd = $hash->{helper}{key};
 	my $success = "failed";
-	Log3($name,4, "pylontech cmd: $cmd _Line:" . __LINE__);
+	Log3($name,3, "pylontech cmd: $cmd _Line:" . __LINE__);
 
-	Log3($name,5, "pylontech analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
+	Log3($name,4, "pylontech analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
 
 	if($values[0] =~ /NAK/){
-		Log3($name,5, "pylontech analysiere $values[0] _Line:" . __LINE__);
-		Log3($name,5, "pylontech Keine Gültige Abfrage, Antwort fehlerfrei. Abbruch. _Line:" . __LINE__);
+		Log3($name,3, "pylontech analysiere $values[0] _Line:" . __LINE__);
+		Log3($name,4, "pylontech Keine Gültige Abfrage, Antwort fehlerfrei. Abbruch. _Line:" . __LINE__);
 		##pylontech_blck_doInternalUpdate($hash); 
 			$hash->{helper}{key} = "";
 		$hash->{helper}{value} = "";
 		$hash->{helper}{retrycount} = "";
-		Log3($name, 5, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
+		Log3($name, 3, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
 		RemoveInternalTimer("resend:$name");
-return;
+		return;
 	}
 
 if($cmd =~ /PACKSTATE(\d)/) {
 
 		Log3($name,4, "pylontech cmd: analysiere PACKSTATE _Line:" . __LINE__);
 		## get Pack-Number
-		Log3($name,5, "pylontech PackNummer = $1 _Line:" . __LINE__);
+		Log3($name,4, "pylontech PackNummer = $1 _Line:" . __LINE__);
 
 		my $recommChargVoltageLimit = hex(substr($value,2,4))/1000;
-		Log3($name,5, "pylontech recommChargVoltageLimit  = $recommChargVoltageLimit _Line:" . __LINE__);
+		Log3($name,4, "pylontech recommChargVoltageLimit  = $recommChargVoltageLimit _Line:" . __LINE__);
 		my $recommDischargeVoltageLimit = hex(substr($value,6,4))/1000;
-		Log3($name,5, "pylontech recommDischargeVoltageLimit = $recommDischargeVoltageLimit _Line:" . __LINE__);
+		Log3($name,4, "pylontech recommDischargeVoltageLimit = $recommDischargeVoltageLimit _Line:" . __LINE__);
 		my $maxChargeCurrent = hex(substr($value,10,4));
-		Log3($name,5, "pylontech DmaxChargeCurrent  = $maxChargeCurrent _Line:" . __LINE__);
+		Log3($name,4, "pylontech DmaxChargeCurrent  = $maxChargeCurrent _Line:" . __LINE__);
 		my $maxDisChargeCurrent = hex(substr($value,14,4));
-		Log3($name,5, "pylontech DmaxDisChargeCurrent  = $maxDisChargeCurrent _Line:" . __LINE__);
+		Log3($name,4, "pylontech DmaxDisChargeCurrent  = $maxDisChargeCurrent _Line:" . __LINE__);
 		my $status = substr($value,18,2);
-		Log3($name,5, "pylontech Status = $status _Line:" . __LINE__);
+		Log3($name,4, "pylontech Status = $status _Line:" . __LINE__);
 		my $message;
 		my $bits = unpack ("B*", pack("H*", $status));
 		if(substr($bits,2,1) == 1) {
@@ -461,8 +460,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
  			##128 = charge enable
 		}
 
-		Log3($name,5, "pylontech A = $message _Line:" . __LINE__);
-		Log3($name,5, "pylontech B = $bits _Line:" . __LINE__);
+		Log3($name,4, "pylontech A = $message _Line:" . __LINE__);
+		Log3($name,4, "pylontech B = $bits _Line:" . __LINE__);
 				readingsBeginUpdate($hash);
 						readingsBulkUpdate($hash,"Pack_$1_recommChargeVoltageLimit",$recommChargVoltageLimit ,1);
 						readingsBulkUpdate($hash,"Pack_$1_recommDischargeVoltageLimit",$recommDischargeVoltageLimit ,1);
@@ -470,13 +469,13 @@ if($cmd =~ /PACKSTATE(\d)/) {
 						readingsBulkUpdate($hash,"Pack_$1_maxDisChargeCurrent ",$maxDisChargeCurrent ,1);
 						readingsBulkUpdate($hash,"Pack_$1_general_status ",$message ,1);
 					readingsEndUpdate($hash,1);
-		Log3($name,5, "pylontech $cmd successful _Line:" . __LINE__);
+		Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 		$success="success";
 }elsif($cmd =~ /CELL(\d)/) {
 	Log3($name,4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__);
 
 	# get Pack-Number
-	Log3($name,5, "pylontech PackNummer = $1 _Line:" . __LINE__);
+	Log3($name,4, "pylontech PackNummer = $1 _Line:" . __LINE__);
 
 
 
@@ -498,18 +497,28 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	readingsBulkUpdate($hash,"Pack_$1_Zelle14",hex(substr($value,58,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Zelle15",hex(substr($value,62,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Temperaturfühler",substr($value,66,2),1);
-	readingsBulkUpdate($hash,"Pack_$1_Temp1",(hex(substr($value,68,4))-2731)/10,1);
-	readingsBulkUpdate($hash,"Pack_$1_Temp2",(hex(substr($value,72,4))-2731)/10,1);
-	readingsBulkUpdate($hash,"Pack_$1_Temp3",(hex(substr($value,76,4))-2731)/10,1);
-	readingsBulkUpdate($hash,"Pack_$1_Temp4",(hex(substr($value,80,4))-2731)/10,1);
-	readingsBulkUpdate($hash,"Pack_$1_Temp5",(hex(substr($value,84,4))-2731)/10,1);
+	my $sensor = 0;
+	for (my $i = 68;$i<=85;$i+4){
+	$sensor++;
+	my $temp = (hex(substr($value,$i,4))-2731)/10;
+		if ($temp < 0 && $temp < 100){
+			readingsBulkUpdate($hash,"Pack_$1_Temp$sensor",$temp,1);
+		}
+	}
+	
+	
+	##readingsBulkUpdate($hash,"Pack_$1_Temp1",(hex(substr($value,68,4))-2731)/10,1);
+	##readingsBulkUpdate($hash,"Pack_$1_Temp2",(hex(substr($value,72,4))-2731)/10,1);
+	##readingsBulkUpdate($hash,"Pack_$1_Temp3",(hex(substr($value,76,4))-2731)/10,1);
+	##readingsBulkUpdate($hash,"Pack_$1_Temp4",(hex(substr($value,80,4))-2731)/10,1);
+	##readingsBulkUpdate($hash,"Pack_$1_Temp5",(hex(substr($value,84,4))-2731)/10,1);
 	
 ##	my $current = hex(substr($value,88,4))/10;
 	my $current = unpack('s', pack('S', hex(substr($value,88,4))))/10;
 ##	$current -= 0x100000000 if $current >= 0x800000;
 
 	readingsBulkUpdate($hash,"Pack_$1_Strom",$current,1);
-	Log3($name,5, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
+	Log3($name,4, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Spannung",hex(substr($value,92,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_left",hex(substr($value,96,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_unbekannt_hex",substr($value,100,2),1);
@@ -518,13 +527,13 @@ if($cmd =~ /PACKSTATE(\d)/) {
 
 	readingsEndUpdate($hash,1);
 			
-	Log3($name,5, "pylontech $cmd successful _Line:" . __LINE__);
+	Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 	$success="success";
 }elsif($cmd =~ /WARN(\d)/) {
 	Log3($name,4, "pylontech cmd: analysiere WARN _Line:" . __LINE__);
 			
 	# get Pack-Number
-	Log3($name,5, "pylontech PackNummer = $1 _Line:" . __LINE__);
+	Log3($name,4, "pylontech PackNummer = $1 _Line:" . __LINE__);
 	
 	
 	readingsBeginUpdate($hash);
@@ -587,8 +596,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
 			$message .= "Pack Undervoltage";
  			##128 = charge enable
 		}
-	Log3($name,5, "pylontech W1A = $message _Line:" . __LINE__);
-	Log3($name,5, "pylontech W1B = $bits _Line:" . __LINE__);
+	Log3($name,4, "pylontech W1A = $message _Line:" . __LINE__);
+	Log3($name,4, "pylontech W1B = $bits _Line:" . __LINE__);
 
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Status1",$bits . ":" . $message,1);
 	$message = "";
@@ -612,8 +621,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
  			##128 = charge enable
 		}
 
-	Log3($name,5, "pylontech A = $message _Line:" . __LINE__);
-	Log3($name,5, "pylontech B = $bits _Line:" . __LINE__);
+	Log3($name,4, "pylontech A = $message _Line:" . __LINE__);
+	Log3($name,4, "pylontech B = $bits _Line:" . __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Status2",$bits . ":" . $message,1);
 	$message = "";
 	my $bits = unpack ("B*", pack("H*", substr($value,58,2)));
@@ -650,8 +659,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
  			##128 = charge enable
 		}
 
-	Log3($name,5, "pylontech A = $message _Line:" . __LINE__);
-	Log3($name,5, "pylontech B = $bits _Line:" . __LINE__);
+	Log3($name,4, "pylontech A = $message _Line:" . __LINE__);
+	Log3($name,4, "pylontech B = $bits _Line:" . __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Status3",$bits . ":" .$message,1);
 	$message = "";
 	my $bits = unpack ("B*", pack("H*", substr($value,60,2)));
@@ -688,8 +697,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
  			##128 = 
 		}
 
-	Log3($name,5, "pylontech A = $message _Line:" . __LINE__);
-	Log3($name,5, "pylontech B = $bits _Line:" . __LINE__);
+	Log3($name,4, "pylontech A = $message _Line:" . __LINE__);
+	Log3($name,4, "pylontech B = $bits _Line:" . __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Status4",$bits . ":" .$message,1);
 	$message = "";
 	my $bits = unpack ("B*", pack("H*", substr($value,62,2)));
@@ -726,8 +735,8 @@ if($cmd =~ /PACKSTATE(\d)/) {
  			##128 = 
 		}
 
-	Log3($name,5, "pylontech A = $message _Line:" . __LINE__);
-	Log3($name,5, "pylontech B = $bits _Line:" . __LINE__);
+	Log3($name,4, "pylontech A = $message _Line:" . __LINE__);
+	Log3($name,4, "pylontech B = $bits _Line:" . __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Status5",$bits . ":" .$message,1);
 	$message = "";
 
@@ -735,17 +744,17 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	
 	
 	
-	Log3($name,5, "pylontech $cmd successful _Line:" . __LINE__);
+	Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 	$success="success";
 }elsif($cmd eq "NOP") {
 	Log3($name,4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__);
 	##my ($b,$a) =split(":",$values[0]);
-	Log3($name,5, "pylontech uebergeben: $a _Line:" . __LINE__);
+	Log3($name,4, "pylontech uebergeben: $a _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
 		readingsBulkUpdate($hash,"Number_of_Packs",$values[0],1);
 	readingsEndUpdate($hash,1);
 			
-	Log3($name,5, "pylontech $cmd successful _Line:" . __LINE__);
+	Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 	$success="success";
 } else {
 	Log3($name,1,"pylontech cmd " . $cmd . " not implemented yet, putting value in _devel<nr>, Line: " . __LINE__);	
@@ -758,18 +767,20 @@ if($cmd =~ /PACKSTATE(\d)/) {
 
 
 	readingsEndUpdate($hash,1);
-	Log3($name,5, "pylontech $cmd successful _Line:" . __LINE__);
+	Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 	$success="success";
 }
 
-Log3($name,5, "pylontech analyze ready. success: $success _Line:" . __LINE__);
+Log3($name,4, "pylontech analyze ready. success: $success _Line:" . __LINE__);
 if($success eq "success"){
 	$hash->{CONNECTION} = "established";
 	$hash->{helper}{key} = "";
 	$hash->{helper}{value} = "";
 	$hash->{helper}{retrycount} = "";
-	Log3($name, 5, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
+	Log3($name, 4, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
 	RemoveInternalTimer("resend:$name");
+	RemoveInternalTimer("$hash");
+	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'pylontech_TimerGetData', $hash);
 }
 
 
