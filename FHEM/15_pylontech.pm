@@ -65,7 +65,7 @@ if(@a < 3 || @a > 5){
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "pylontech_DoInit" );
   Log3($name, 1, "pylontech DevIO_OpenDev_Define" . __LINE__); 
- InternalTimer( gettimeofday()+i2, 'pylontech_TimerGetData', $hash);
+ InternalTimer( gettimeofday()+2, 'pylontech_TimerGetData', $hash);
   return $ret;
 }
 
@@ -213,10 +213,16 @@ sub pylontech_sendRequests($){
 my ($calltype,$name) = split(':', $_[0]);
 my $hash = $defs{$name};
 Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests calltype $calltype  Line: " . __LINE__;	
-if($calltype eq "resend" && $hash->{helper}{recv} eq ""){
+if($calltype eq "resend"){ ## && $hash->{helper}{recv} eq ""){
 
 	$hash->{CONNECTION} = "timeout";
 	readingsSingleUpdate($hash, "_status","communication failed",1);
+	$hash->{helper}{value} = "";
+	$hash->{helper}{key} = "";
+	@{$hash->{actionQueue}} = ();
+	Log3($name,1, "pylontech_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__);
+	pylontech_TimerGetData($hash);
+	return -1;
 }
 
 
@@ -294,8 +300,8 @@ my $send = "7E" . unpack("H*", $hash->{helper}{value}) . "0D";
 Log3 $name, 3, "pylontech ($name) - pylontech_sendRequests sendString: $send  Line: " . __LINE__;	
 
 DevIo_SimpleWrite($hash,$send,1);
-InternalTimer(gettimeofday()+2,'pylontech_sendRequests',"resend:$name");
-	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests starte resend-timer.Line: " . __LINE__;	
+InternalTimer(gettimeofday()+10,'pylontech_sendRequests',"resend:$name");
+	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests starte resend-timer. 10 Sekunden Line: " . __LINE__;	
 }
 #####################################
 sub pylontech_Read($$)
@@ -304,7 +310,7 @@ sub pylontech_Read($$)
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	##$hash->{CONNECTION} = "reading from Device";
-	##readingsSingleUpdate($hash, "_status","reading from Device",1);
+	readingsSingleUpdate($hash, "_status","communication in progress",1);
 	Log3($name,5, "pylontech jetzt wird gelesen _Line:" . __LINE__);
 	# read from serial device
 	#
@@ -498,11 +504,15 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	readingsBulkUpdate($hash,"Pack_$1_Zelle15",hex(substr($value,62,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Temperaturfühler",substr($value,66,2),1);
 	my $sensor = 0;
-	for (my $i = 68;$i<=85;$i+4){
+	foreach((68,72,76,80,84)){
+	Log3($name,4, "pylontech temploop foreach $_ _Line:" . __LINE__);
 	$sensor++;
-	my $temp = (hex(substr($value,$i,4))-2731)/10;
-		if ($temp < 0 && $temp < 100){
+	my $temp = (hex(substr($value,$_,4))-2731)/10;
+		Log3($name,5, "pylontech temploop temp $temp _Line:" . __LINE__);
+		if ($temp > 0 && $temp < 100){
 			readingsBulkUpdate($hash,"Pack_$1_Temp$sensor",$temp,1);
+
+			Log3($name,5, "pylontech temploop update Pack_$1_Temp$sensor : $temp Part: $_ _Line:" . __LINE__);
 		}
 	}
 	
