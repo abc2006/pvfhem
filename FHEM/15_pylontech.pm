@@ -419,6 +419,7 @@ sub pylontech_Read($$)
 		pylontech_sendRequests("next:$name");
 	}else{
 	
+	pylontech_calcTotal($hash);
 	readingsSingleUpdate($hash, "_status","communication finished, standby",1);
 	}
 	}
@@ -808,17 +809,16 @@ if($success eq "success"){
 	Log3($name, 4, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
 	RemoveInternalTimer("resend:$name");
 	RemoveInternalTimer("$hash");
-	pylontech_calcTotal($hash);
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'pylontech_TimerGetData', $hash);
-	Log3($name, 3, "pylontech ($name) - ### transmission finished " . __LINE__);	
+	Log3($name, 3, "pylontech ($name) - ransmission finished " . __LINE__);	
 }
 
 sub pylontech_calcTotal($){
 
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
-	my $numberOfPacks = ReadingsNum($name,"2_Number_of_Packs",1);
-	my $Ah_left_total = 0; 
+	my $numberOfPacks = ReadingsNum($name,"1_Number_of_Packs",8);
+	my $Ah_left = 0; 
 	my $Ah_total = 0; 
 	my $U_total = 0; 
 	my $I_total = 0; 
@@ -829,24 +829,16 @@ sub pylontech_calcTotal($){
 	readingsBeginUpdate($hash);
 	for (my $i=1;$i<$numberOfPacks+1;$i++)
 	{
-	
-#	my $Ah_left_i = 0;
-#	my $Ah_total_i = 0;
-#	my $readString1 = "Pack_" . $i . "_Ah_left";
-#	Log3($name, 5, "pylontech ($name) - Ah_left_i $readString1 " . "Line:" . __LINE__);	
-#	my $Ah_left_i = ReadingsNum($name,$readString1,0);
-#	Log3($name, 5, "pylontech ($name) - Ah_left_i $Ah_left_i" . "Line:" . __LINE__);	
-#	$Ah_left_total += $Ah_left_i;
-	
-	
-	
-#	my $Ah_total_i = ReadingsNum($name,"Pack_" . $i . "_Ah_total",0);
-#	Log3($name, 5, "pylontech ($name) - Ah_total_i $Ah_total_i" . "Line:" . __LINE__);	
-#	$Ah_total += $Ah_total_i;
-#	if($Ah_left_i > 0 && $Ah_total_i > 0){
-#		my $soc_i = int(10*($Ah_left_i/$Ah_total_i/100))/10;
-#		readingsBulkUpdate($hash,"Pack_" . $i . "SoC",$soc_i);
-	}
+ 	
+	my $a = ReadingsNum($name,"Pack_" . $i . "_Ah_left",0);	
+	$Ah_left = $Ah_left + $a;	
+	Log3($name, 5, "pylontech ($name) - a: $a " . __LINE__);	
+ 	my $b = ReadingsNum($name,"Pack_" . $i . "_Ah_total",0);	
+ 	$Ah_total = $Ah_total + $b;	
+	Log3($name, 5, "pylontech ($name) - b: $b " . __LINE__);
+	my $soc_pack =  int(10*($a/($b/100)))/10;
+		
+	readingsBulkUpdate($hash,"Pack_" . $i . "_SoC",$soc_pack);
 	$U_total = $U_total + ReadingsNum($name,"Pack_" . $i . "_Spannung",0);
 	$I_total = $I_total + ReadingsNum($name,"Pack_" . $i . "_Strom",0);
 	for (my $k=1;$k<6;$k++){
@@ -855,12 +847,15 @@ sub pylontech_calcTotal($){
 	}
  	$T_total = int(10*($T_total/$numberOfPacks/5))/10;	
 	$U_total = int(1000*($U_total/$numberOfPacks))/1000;
-	$kWh_left_total = int(10*($Ah_left_total*$U_total/1000))/10;
+	$kWh_left_total = int(10*($Ah_left*$U_total/1000))/10;
 	$P_total = int($U_total * $I_total);	
-	$soc_total = int(10*($Ah_left_total/$Ah_total/100))/10;	
-	readingsBulkUpdate($hash,"1_Ah_BMS_left_total",$Ah_left_total);
+	Log3($name, 5, "pylontech ($name) - Ah_left: $Ah_left " . __LINE__);	
+	Log3($name, 5, "pylontech ($name) - Ah_total: $Ah_total " . __LINE__);	
+	$soc_total = int(10*($Ah_left/($Ah_total/100)))/10;
+	Log3($name, 5, "pylontech ($name) - soc_total: $soc_total " . __LINE__);	
 	readingsBulkUpdate($hash,"1_kWh_BMS_left_total",$kWh_left_total);
 	readingsBulkUpdate($hash,"1_Ah_BMS_total",$Ah_total);
+	readingsBulkUpdate($hash,"1_Ah_BMS_left",$Ah_left);
 	readingsBulkUpdate($hash,"1_SOC_BMS_total",$soc_total);
 	readingsBulkUpdate($hash,"1_Temperature_total",$T_total);
 	readingsBulkUpdate($hash,"1_Spannung_total",$U_total);
