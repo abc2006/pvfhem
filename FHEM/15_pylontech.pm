@@ -11,12 +11,27 @@ my %requests = (
 	'PACKSTATE1' => "20014692E00201FD30", ## Number of Packs
 	'PACKSTATE2' => "20014692E00202FD2F", ## Number of Packs
 	'PACKSTATE3' => "20014692E00203FD2E", ## Number of Packs
+	'PACKSTATE4' => "20014692E00204FD2D", ## Number of Packs
+	'PACKSTATE5' => "20014692E00205FD2C", ## Number of Packs
+	'PACKSTATE6' => "20014692E00206FD2B", ## Number of Packs
+	'PACKSTATE7' => "20014692E00207FD2A", ## Number of Packs
+	'PACKSTATE8' => "20014692E00208FD29", ## Number of Packs
 	'CELL1' => "20014642E00201FD35", ## Values of Cells, voltages, temperatures 
 	'CELL2' => "20014642E00202FD34", ## Values of Cells, voltages, temperatures 
 	'CELL3' => "20014642E00203FD33", ## Values of Cells, voltages, temperatures 
+	'CELL4' => "20014642E00204FD32", ## Values of Cells, voltages, temperatures 
+	'CELL5' => "20014642E00205FD31", ## Values of Cells, voltages, temperatures 
+	'CELL6' => "20014642E00206FD30", ## Values of Cells, voltages, temperatures 
+	'CELL7' => "20014642E00207FD2F", ## Values of Cells, voltages, temperatures 
+	'CELL8' => "20014642E00208FD2E", ## Values of Cells, voltages, temperatures 
 	'WARN1' => "20014644E00201FD33", ## Warnings of the Cells
 	'WARN2' => "20014644E00202FD32", ## Warnings of the Cells
-	'WARN3' => "20014644E00203FD31" ## Warnings of the Cells
+	'WARN3' => "20014644E00203FD31", ## Warnings of the Cells
+	'WARN4' => "20014644E00204FD30", ## Warnings of the Cells
+	'WARN5' => "20014644E00205FD2F", ## Warnings of the Cells
+	'WARN6' => "20014644E00206FD2E", ## Warnings of the Cells
+	'WARN7' => "20014644E00207FD2D", ## Warnings of the Cells
+	'WARN8' => "20014644E00208FD2C" ## Warnings of the Cells
 ##	'VERSION' => "200146510000FDAD", ## Firmware version
 	);
 
@@ -375,6 +390,7 @@ sub pylontech_Read($$)
 		}
 	readingsSingleUpdate($hash, "_error","$error",1);
 	Log3($name,5, "pylontech Fehler: $error");
+	readingsSingleUpdate($hash, "_status","communication failed. Proceeding",1);
 	}
 	
 
@@ -421,7 +437,7 @@ sub pylontech_analyze_answer($$){
 
 	Log3($name,4, "pylontech analysiere ueberhaupt mal irgendwas _Line:" . __LINE__);
 
-	if($values[0] =~ /NAK/){
+	if($value =~ /NAK/){
 		Log3($name,3, "pylontech analysiere $values[0] _Line:" . __LINE__);
 		Log3($name,4, "pylontech Keine Gültige Abfrage, Antwort fehlerfrei. Abbruch. _Line:" . __LINE__);
 		##pylontech_blck_doInternalUpdate($hash); 
@@ -528,9 +544,10 @@ if($cmd =~ /PACKSTATE(\d)/) {
 ##	$current -= 0x100000000 if $current >= 0x800000;
 
 	readingsBulkUpdate($hash,"Pack_$1_Strom",$current,1);
-	Log3($name,4, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
+	Log3($name,3, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Spannung",hex(substr($value,92,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_left",hex(substr($value,96,4))/1000,1);
+	Log3($name,3, "pylontech Ah_left: " . hex(substr($value,96,4))/1000 . "Ah _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_unbekannt_hex",substr($value,100,2),1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_total",hex(substr($value,102,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_cycle",hex(substr($value,106,4)),1);
@@ -572,7 +589,7 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	readingsBulkUpdate($hash,"Pack_$1_Warn_LadeStrom",hex(substr($value,48,2)),1);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_Spannung",hex(substr($value,50,2)),1);
 	readingsBulkUpdate($hash,"Pack_$1_Warn_EntladeStrom",hex(substr($value,52,2)),1);
-	my $message; 
+	my $message = ""; 
 	my $bits = unpack ("B*", pack("H*", substr($value,54,2)));
 		if(substr($bits,7,1) == 1) {
 			$message .= "OverVoltage";
@@ -759,11 +776,12 @@ if($cmd =~ /PACKSTATE(\d)/) {
 }elsif($cmd eq "NOP") {
 	Log3($name,4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__);
 	##my ($b,$a) =split(":",$values[0]);
+	my $a = $value*1;
 	Log3($name,4, "pylontech uebergeben: $a _Line:" . __LINE__);
 	readingsBeginUpdate($hash);
-		readingsBulkUpdate($hash,"Number_of_Packs",$values[0],1);
+		readingsBulkUpdate($hash,"1_Number_of_Packs",$a,1);
 	readingsEndUpdate($hash,1);
-			
+	$hash->{helper}{NOP} = $a;
 	Log3($name,4, "pylontech $cmd successful _Line:" . __LINE__);
 	$success="success";
 } else {
@@ -790,7 +808,65 @@ if($success eq "success"){
 	Log3($name, 4, "pylontech ($name) - pylontech_analyze_answer stoppe resend-timer. Line: " . __LINE__);	
 	RemoveInternalTimer("resend:$name");
 	RemoveInternalTimer("$hash");
+	pylontech_calcTotal($hash);
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'pylontech_TimerGetData', $hash);
+	Log3($name, 3, "pylontech ($name) - ### transmission finished " . __LINE__);	
+}
+
+sub pylontech_calcTotal($){
+
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	my $numberOfPacks = ReadingsNum($name,"2_Number_of_Packs",1);
+	my $Ah_left_total = 0; 
+	my $Ah_total = 0; 
+	my $U_total = 0; 
+	my $I_total = 0; 
+	my $P_total = 0; 
+	my $T_total = 0;
+	my $soc_total = 0;
+	my $kWh_left_total = 0; 
+	readingsBeginUpdate($hash);
+	for (my $i=1;$i<$numberOfPacks+1;$i++)
+	{
+	
+#	my $Ah_left_i = 0;
+#	my $Ah_total_i = 0;
+#	my $readString1 = "Pack_" . $i . "_Ah_left";
+#	Log3($name, 5, "pylontech ($name) - Ah_left_i $readString1 " . "Line:" . __LINE__);	
+#	my $Ah_left_i = ReadingsNum($name,$readString1,0);
+#	Log3($name, 5, "pylontech ($name) - Ah_left_i $Ah_left_i" . "Line:" . __LINE__);	
+#	$Ah_left_total += $Ah_left_i;
+	
+	
+	
+#	my $Ah_total_i = ReadingsNum($name,"Pack_" . $i . "_Ah_total",0);
+#	Log3($name, 5, "pylontech ($name) - Ah_total_i $Ah_total_i" . "Line:" . __LINE__);	
+#	$Ah_total += $Ah_total_i;
+#	if($Ah_left_i > 0 && $Ah_total_i > 0){
+#		my $soc_i = int(10*($Ah_left_i/$Ah_total_i/100))/10;
+#		readingsBulkUpdate($hash,"Pack_" . $i . "SoC",$soc_i);
+	}
+	$U_total = $U_total + ReadingsNum($name,"Pack_" . $i . "_Spannung",0);
+	$I_total = $I_total + ReadingsNum($name,"Pack_" . $i . "_Strom",0);
+	for (my $k=1;$k<6;$k++){
+		$T_total +=  ReadingsNum($name,"Pack_" . $i . "_Temp" . $k,0);
+	}
+	}
+ 	$T_total = int(10*($T_total/$numberOfPacks/5))/10;	
+	$U_total = int(1000*($U_total/$numberOfPacks))/1000;
+	$kWh_left_total = int(10*($Ah_left_total*$U_total/1000))/10;
+	$P_total = int($U_total * $I_total);	
+	$soc_total = int(10*($Ah_left_total/$Ah_total/100))/10;	
+	readingsBulkUpdate($hash,"1_Ah_BMS_left_total",$Ah_left_total);
+	readingsBulkUpdate($hash,"1_kWh_BMS_left_total",$kWh_left_total);
+	readingsBulkUpdate($hash,"1_Ah_BMS_total",$Ah_total);
+	readingsBulkUpdate($hash,"1_SOC_BMS_total",$soc_total);
+	readingsBulkUpdate($hash,"1_Temperature_total",$T_total);
+	readingsBulkUpdate($hash,"1_Spannung_total",$U_total);
+	readingsBulkUpdate($hash,"1_Strom_total",$I_total);
+	readingsBulkUpdate($hash,"1_Power_total",$P_total);
+	readingsEndUpdate($hash,1);
 }
 
 
