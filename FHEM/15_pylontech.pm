@@ -548,6 +548,7 @@ if($cmd =~ /PACKSTATE(\d)/) {
 	Log3($name,3, "pylontech Strom = " . substr($value,88,4) . ":" . $current . " _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_Spannung",hex(substr($value,92,4))/1000,1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_left",hex(substr($value,96,4))/1000,1);
+	readingsBulkUpdate($hash,"Pack_$1_SoC",hex(substr($value,96,4))/1000*2,1);
 	Log3($name,3, "pylontech Ah_left: " . hex(substr($value,96,4))/1000 . "Ah _Line:" .  __LINE__);
 	readingsBulkUpdate($hash,"Pack_$1_unbekannt_hex",substr($value,100,2),1);
 	readingsBulkUpdate($hash,"Pack_$1_Ah_total",hex(substr($value,102,4))/1000,1);
@@ -830,15 +831,15 @@ sub pylontech_calcTotal($){
 	for (my $i=1;$i<$numberOfPacks+1;$i++)
 	{
  	
-	my $a = ReadingsNum($name,"Pack_" . $i . "_Ah_left",0);	
-	$Ah_left = $Ah_left + $a;	
-	Log3($name, 5, "pylontech ($name) - a: $a " . __LINE__);	
- 	my $b = ReadingsNum($name,"Pack_" . $i . "_Ah_total",0);	
- 	$Ah_total = $Ah_total + $b;	
-	Log3($name, 5, "pylontech ($name) - b: $b " . __LINE__);
-	my $soc_pack =  int(10*($a/($b/100)))/10;
+#	my $a = ReadingsNum($name,"Pack_" . $i . "_Ah_left",0);	
+#	$Ah_left = $Ah_left + $a;	
+#	Log3($name, 5, "pylontech ($name) - a: $a " . __LINE__);	
+# 	my $b = ReadingsNum($name,"Pack_" . $i . "_Ah_total",0);	
+# 	$Ah_total = $Ah_total + $b;	
+#	Log3($name, 5, "pylontech ($name) - b: $b " . __LINE__);
+##	my $soc_pack =  int(10*($a/($b/100)))/10;
 		
-	readingsBulkUpdate($hash,"Pack_" . $i . "_SoC",$soc_pack);
+##	readingsBulkUpdate($hash,"Pack_" . $i . "_SoC",$soc_pack);
 	$U_total = $U_total + ReadingsNum($name,"Pack_" . $i . "_Spannung",0);
 	$I_total = $I_total + ReadingsNum($name,"Pack_" . $i . "_Strom",0);
 	for (my $k=1;$k<6;$k++){
