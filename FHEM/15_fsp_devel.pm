@@ -31,7 +31,7 @@ fsp_devel_Initialize($)
   $hash->{NotifyFn}    = "fsp_devel_Notify";
   $hash->{ReadFn}    = "fsp_devel_Read";
   $hash->{ReadyFn}    = "fsp_devel_Ready";
-$hash->{AttrList}	= $readingFnAttributes;
+$hash->{AttrList}	= $readingFnAttributes . " mode:manual,automatic";
 }
 
 #####################################
@@ -83,6 +83,32 @@ sub fsp_devel_Ready($)
 sub fsp_devel_Notify($$){
 my ($hash,$dev) = @_;
 my $name = $hash->{NAME};
+Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify  Line: " . __LINE__;    
+return if (IsDisabled($name));
+my $devname = $dev->{NAME};
+my $devtype = $dev->{TYPE};
+my $events = deviceEvents($dev,1);
+Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify - not disabled  Line: " . __LINE__;    
+return if (!$events);
+if( grep /^ATTR.$name.mode/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
+        Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__; 
+        $hash->{MODE} = AttrVal($name,"mode","automatic");
+}
+
+
+Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify got events @{$events} Line: " . __LINE__;  
+#pylontech_TimerGetData($hash) if( grep /^INITIALIZED$/,@{$events}
+#                                or grep /^CONNECTED$/,@{$events}
+#                                or grep /^DELETEATTR.$name.disable$/,@{$events}
+#                                or grep /^DELETEATTR.$name.interval$/,@{$events}
+#                                or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
+
+
+
+
+
+
+
 return;
 
 }
@@ -97,21 +123,28 @@ sub fsp_devel_Undef($$)
 sub fsp_devel_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of cmd timer:noArg S005LON:0,1 S012FPADJ S005ED:feed_power_enable,feed_power_disable S012FPRADJ S012FPSADJ S012FPTADJ"; 
+	my $usage = "Unknown argument $a[1], choose one of cmd timer:noArg S005LON:0,1 S012FPADJ S005ED:feed_power_enable,feed_power_disable S013FPRADJ S013FPSADJ S013FPTADJ"; 
 	my $ret;
 	my $minInterval = 30;
 	Log3($name,5, "fsp_devel argument $a[1] _Line: " . __LINE__);
   	if ($a[1] eq "?"){
-	Log3($name,5, "fsp_devel argument fragezeichen" . __LINE__);
+	Log3($name,5, "fsp_devel argument fragezeichen _Line:" . __LINE__);
 	return $usage;
 	}
   	if ($a[1] eq "cmd"){
-	Log3($name,5, "fsp_devel argument cmd" . __LINE__);
-	RemoveInternalTimer($hash); # Stoppe Timer
-		push(@{$hash->{helper}{addCMD}}, $a[2] );
+	Log3($name,5, "fsp_devel argument cmd _Line: " . __LINE__);
+		if($hash->{MODE} eq "automatic"){
+			Log3($name,5, "fsp_devel cmd in automatic mode" . __LINE__);
+			RemoveInternalTimer($hash); # Stoppe Timer
+			push(@{$hash->{helper}{addCMD}}, $a[2] );
+			InternalTimer(gettimeofday()+2,'fsp_devel_prepareRequests',$hash);
+		} else{
+			Log3($name,5, "fsp_devel cmd in manual mode" . __LINE__);
+			push(@{$hash->{helper}{addCMD}}, $a[2] );
+			fsp_devel_sendRequests($hash);
+		}
 		readingsSingleUpdate($hash,"1_lastcmd",$a[2],1);
-	InternalTimer(gettimeofday()+2,'fsp_devel_prepareRequests',$hash);
-	
+	return;	
 	}
   	if ($a[1] eq "timer"){
 	Log3($name,5, "fsp_devel argument timer" . __LINE__);
@@ -129,7 +162,9 @@ sub fsp_devel_Set($@){
 
 
 	if ($setcmd eq "S005LON"){ #en/dis-able power supply to load
-		$hash->{helper}{addCMD} = "5e533030354c4f4e". $setvalue_hex ."0d";
+		my $push = "5e533030354c4f4e". $setvalue_hex ."0d";
+		push(@{$hash->{helper}{addCMD}}, $push );
+		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
 	}elsif ($setcmd eq "S012FPADJ"){ # Feeding Grid power Calibrationi
 		#S012FPADJm,nnnn
 		#m = direktion => +=1; -=0
@@ -161,25 +196,28 @@ sub fsp_devel_Set($@){
 			Log3($name,5, "fsp_devel setFn S012FPADJ $sendstring _Line: " . __LINE__);
 		}
 		## den Befehl wegsenden
-		$hash->{helper}{addCMD} = $sendstring;
+		push(@{$hash->{helper}{addCMD}}, $sendstring);
+		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
-		$hash->{helper}{addCMD} = "5e50303036465041444a0d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
 	}elsif ($setcmd eq "S005ED"){ #
 		my $value = $a[2] eq "feed_power_enable" ? "31" : "30";
-		$hash->{helper}{addCMD} = "5e53303035454443" . $value . "0d";
-		readingsSingleUpdate($hash,"1_lastcmd","5e53303035454443" . $value . "0d",1);
-	}elsif ($setcmd eq "S012FPRADJ"){ #
+		my $push = "5e53303035454443" . $value . "0d";
+		push(@{$hash->{helper}{addCMD}}, $push );
+		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
+		readingsSingleUpdate($hash,"1_lastcmd",$push,1);
+	}elsif ($setcmd eq "S013FPRADJ"){ #
 		#S012FPRADJm,nnnn
 		#m = direktion => +=1; -=0
 		#calibration power, range 0-1000
-		my $sendstring = "5e5330313246505241444a";
+		my $sendstring = "5e5330313346505241444a";
 		if(defined($a[2]) && $a[2] ne "" && $a[2] != 0 && abs($a[2]) < 1000){
 			if($a[2] > 0){
 				$sendstring .= "312c"; ## hex für 1
 			} else {
 				$sendstring .= "302c"; ## hex für 0
 			}
-			Log3($name,5, "fsp_devel setFn S012FPRADJ a2 $a[2] _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPRADJ a2 $a[2] _Line: " . __LINE__);
 			my @digits = split ("", $a[2]);
 			my $value;
 			foreach(@digits) {
@@ -193,28 +231,29 @@ sub fsp_devel_Set($@){
 			
 			
 			my $lenval = length($value);
-			Log3($name,5, "fsp_devel setFn S012FPADJ laenge $lenval _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPADJ laenge $lenval _Line: " . __LINE__);
 			$sendstring .= $value;			
 			$sendstring .= "0d";
-			Log3($name,5, "fsp_devel setFn S012FPADJ $sendstring _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPADJ $sendstring _Line: " . __LINE__);
 		}
 		## den Befehl wegsenden
-		$hash->{helper}{addCMD} .= " " . $sendstring;
+		push(@{$hash->{helper}{addCMD}}, $sendstring);
+		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
-		#$hash->{helper}{addCMD} .= "5e50303036465041444a0d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
 	}
-	if ($setcmd eq "S012FPSADJ"){ #
+	if ($setcmd eq "S013FPSADJ"){ #
 		#S012FPSADJm,nnnn
 		#m = direktion => +=1; -=0
 		#calibration power, range 0-1000
-		my $sendstring = "5e5330313246505341444a";
+		my $sendstring = "5e5330313346505341444a";
 		if(defined($a[2]) && $a[2] ne "" && $a[2] != 0 && abs($a[2]) < 1000){
 			if($a[2] > 0){
 				$sendstring .= "312c"; ## hex für 1
 			} else {
 				$sendstring .= "302c"; ## hex für 0
 			}
-			Log3($name,5, "fsp_devel setFn S012FPSADJ a2 $a[2] _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPSADJ a2 $a[2] _Line: " . __LINE__);
 			my @digits = split ("", $a[2]);
 			my $value;
 			foreach(@digits) {
@@ -228,31 +267,33 @@ sub fsp_devel_Set($@){
 			
 			
 			my $lenval = length($value);
-			Log3($name,5, "fsp_devel setFn S012FPADJ laenge $lenval _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPADJ laenge $lenval _Line: " . __LINE__);
 			$sendstring .= $value;			
 			$sendstring .= "0d";
-			Log3($name,5, "fsp_devel setFn S012FPADJ $sendstring _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPADJ $sendstring _Line: " . __LINE__);
 		}
 		## den Befehl wegsenden
-		$hash->{helper}{addCMD} = $sendstring;
+		push(@{$hash->{helper}{addCMD}}, $sendstring);
+		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
-		#$hash->{helper}{addCMD} = "5e50303036465041444a0d";
-	}elsif ($setcmd eq "S012FPTADJ"){ #
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
+	}elsif ($setcmd eq "S013FPTADJ"){ #
 		#S012FPTADJm,nnnn
 		#m = direktion => +=1; -=0
 		#calibration power, range 0-1000
-		my $sendstring = "5e5330313246505441444a";
+		my $sendstring = "5e5330313346505441444a";
 		if(defined($a[2]) && $a[2] ne "" && $a[2] != 0 && abs($a[2]) < 1000){
 			if($a[2] > 0){
 				$sendstring .= "312c"; ## hex für 1
 			} else {
 				$sendstring .= "302c"; ## hex für 0
 			}
-			Log3($name,5, "fsp_devel setFn S012FPADJ a2 $a[2] _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPTADJ a2 $a[2] _Line: " . __LINE__);
 			my @digits = split ("", $a[2]);
 			my $value;
 			foreach(@digits) {
 				if($_ =~ /[0-9]/){
+					Log3($name,5, "fsp_devel setFn S013FPTADJ digits $_ _Line: " . __LINE__);
 					$value .= unpack "H*", $_;
 				}
 			}
@@ -262,68 +303,26 @@ sub fsp_devel_Set($@){
 			
 			
 			my $lenval = length($value);
-			Log3($name,5, "fsp_devel setFn S012FPADJ laenge $lenval _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPTADJ laenge $lenval _Line: " . __LINE__);
 			$sendstring .= $value;			
 			$sendstring .= "0d";
-			Log3($name,5, "fsp_devel setFn S012FPADJ $sendstring _Line: " . __LINE__);
+			Log3($name,5, "fsp_devel setFn S013FPTADJ $sendstring _Line: " . __LINE__);
 		}
 		## den Befehl wegsenden
-		$hash->{helper}{addCMD} = $sendstring;
+		push(@{$hash->{helper}{addCMD}}, $sendstring);
+		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
-		#$hash->{helper}{addCMD} = "5e50303036465041444a0d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
 	}elsif ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
+		push(@{$hash->{helper}{addCMD}}, "");
 	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
-	}
-	if ($setcmd eq ""){ #
-		$hash->{helper}{addCMD} = "";
+	if($hash->{MODE} eq "automatic"){
+		Log3($name,5, "fsp_devel setcmd in automatic mode" . __LINE__);
+		RemoveInternalTimer($hash); # Stoppe Timer
+		fsp_devel_sendRequests($hash);
+	} else{
+		Log3($name,5, "fsp_devel setcmd in manual mode" . __LINE__);
+		fsp_devel_sendRequests($hash);
 	}
 }
 #####################################
@@ -339,120 +338,132 @@ sub fsp_devel_Get($@){
 
 	my $getcmd = $a[1];
 	if ($getcmd eq "P003PI"){ # Query Protocol ID
-		$hash->{helper}{addCMD} = "5e5030303350490d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303350490d");
 	}
 
 	if ($getcmd eq "P003ID"){ #Query Series Number
-		$hash->{helper}{addCMD} = "5e5030303349440d";
-		$hash->{helper}{addCMD} = "5e5030303349440d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303349440d");
 	}
 	
 	if ($getcmd eq "P004VFW"){ #Query CPU Version
-		$hash->{helper}{addCMD} = "5e503030345646570d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030345646570d");
 	}
 
 	if ($getcmd eq "P005VFW2"){ #Query secondary CPU Version
-		$hash->{helper}{addCMD} = "5e50303035564657320d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035564657320d");
 	}
 	
 	if ($getcmd eq "P003MD"){ #Query Device Model
-		$hash->{helper}{addCMD} = "5e503030334d440d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030334d440d");
 	}
 
 	if ($getcmd eq "P005PIRI"){ # Query rated information
-		$hash->{helper}{addCMD} = "5e50303035504952490d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035504952490d");
 	}
 	if ($getcmd eq "P005FLAG"){ # Query Flag Status
-		$hash->{helper}{addCMD} = "5e50303035464c41470d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035464c41470d");
 	}
 	if ($getcmd eq "P002T"){ # Query current Time
-		$hash->{helper}{addCMD} = "5e50303032540d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303032540d");
 	}
 	if ($getcmd eq "P003ET"){ # Query total generated Energy
-		$hash->{helper}{addCMD} = "5e5030303345540d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303345540d");
 	}
 	if ($getcmd eq "P010EYyyyynnn"){ # Query generated Energy of year
+		push(@{$hash->{helper}{addCMD}}, "");
 		## Implementierung ist mir grade unwichtig
 	}
 	if ($getcmd eq "P012EMyyyymmnnn"){ #  Query generated Energy of month 
+		push(@{$hash->{helper}{addCMD}}, "");
 		## Implementierung ist mir grade unwichtig
 	}
 	if ($getcmd eq "P014EDyyyymmddnnn"){ #  Query generated Energy of day 
+		push(@{$hash->{helper}{addCMD}}, "");
 		## Implementierung ist mir grade unwichtig
 		#das hier scheint aber interessant
 	}
 	if ($getcmd eq ""){ #  Query generated Energy of hour 
+		push(@{$hash->{helper}{addCMD}}, "");
 		## Implementierung ist mir grade unwichtig
 	}
 	if ($getcmd eq "P004GOV"){ # Query AC input Voltage acceptable range for feed Power
-		$hash->{helper}{addCMD} = "5e50303034474f560d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303034474f560d");
 	}
 	if ($getcmd eq "P004GOF"){ # Query AC input frequency acceptable range for feed Power
-		$hash->{helper}{addCMD} = "5e50303034474f460d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303034474f460d");
 	}
 	if ($getcmd eq "P005OPMP"){ #Query the maximum output power - durchgestrichen.. 
-		$hash->{helper}{addCMD} = "5e503030354f504d500d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030354f504d500d");
 	}
 	if ($getcmd eq "P005GPMP"){ # Query the maximum output Power for feeding Grid
-		$hash->{helper}{addCMD} = "5e5030303547504d500d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303547504d500d");
 	}
 	if ($getcmd eq "P006MPPTV"){ #Query Solar input MPP acceptable Range
-		$hash->{helper}{addCMD} = "5e3030364d505054560d";
+		push(@{$hash->{helper}{addCMD}}, "5e3030364d505054560d");
 	}
 	if ($getcmd eq "P004LST"){ #Query LCD Sleeping Time
-		$hash->{helper}{addCMD} = "5e503030344c53540d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030344c53540d");
 	}
 	
 	if ($getcmd eq "P003SV"){ # Query Solar input Voltage acceptable Range
-		$hash->{helper}{addCMD} = "5e5030303353560d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303353560d");
 	}
 	if ($getcmd eq "P003DI"){ # Query default Value for changeable Parameter
-		$hash->{helper}{addCMD} = "5e5030303344490d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303344490d");
 	}
 	if ($getcmd eq "P005BATS"){ # Query Battery Setting
-		$hash->{helper}{addCMD} = "5e50303035424154530d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035424154530d");
 
 	}
 	if ($getcmd eq "P003DM"){ # Query Machine Model
-		$hash->{helper}{addCMD} = "5e50303033444d0d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303033444d0d");
 	}
 	if ($getcmd eq "P004MAR"){ # Query Maschine Adjustable range
-		$hash->{helper}{addCMD} = "5e503030344d41520d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030344d41520d");
 	}
 	if ($getcmd eq "P004CFS"){ # Query current Fault Status
-		$hash->{helper}{addCMD} = "5e503030344346530d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030344346530d");
 	}
 	if ($getcmd eq "P006HFSnn"){ # Query history fault parameter
+		push(@{$hash->{helper}{addCMD}}, "");
 		# unwichtig ?!?
 	}
 	if ($getcmd eq "P005HECS"){ # Query Energy control Status
-		$hash->{helper}{addCMD} = "5e50303035484543530d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035484543530d");
 	}
 	if ($getcmd eq "P006GLTHV"){ # Query AC input long-lime highest average Power
-		$hash->{helper}{addCMD} = "5e50303036474c5448560d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303036474c5448560d");
 	}
 	if ($getcmd eq "P004FET"){ #Query first generated energy save time
-		$hash->{helper}{addCMD} = "5e503030344645540d";
+		push(@{$hash->{helper}{addCMD}}, "5e503030344645540d");
 	}
 	if ($getcmd eq "P003FT"){ # Query wait time for Feed Power
-		$hash->{helper}{addCMD} = "5e5030303346540d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303346540d");
 	}
 	if ($getcmd eq "P005ACCT"){ #Query AC charge time bucket
-		$hash->{helper}{addCMD} = "5e50303035414343540d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303035414343540d");
 	}
 	if ($getcmd eq "P005ACLT"){ #Query AC supply load time bucket
-		$hash->{helper}{addCMD} = "5e5030303541434c540d";
+		push(@{$hash->{helper}{addCMD}}, "5e5030303541434c540d");
 	}
 	if ($getcmd eq "P006FPADJ"){ #Query feeding grid power calibration
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
 		## kandidat für automatik? 
-		$hash->{helper}{addCMD} = "5e50303036465041444a0d";
 	}
 	if ($getcmd eq "P006FPPF"){ #Query feed in Power factor
-		$hash->{helper}{addCMD} = "5e50303036465050460d";
+		push(@{$hash->{helper}{addCMD}}, "5e50303036465050460d");
 	}
 	if ($getcmd eq "P005AAPF"){ #query auto-adjust PF with power Information (rot gefärbt)
+		push(@{$hash->{helper}{addCMD}}, "5e50303035414150460d");
 		## kandidat für automatik? 
-		$hash->{helper}{addCMD} = "5e50303035414150460d";
+	}
+	if($hash->{MODE} eq "automatic"){
+		Log3($name,5, "fsp_devel getcmd in automatic mode" . __LINE__);
+		RemoveInternalTimer($hash); # Stoppe Timer
+		fsp_devel_sendRequests($hash);
+	} else{
+		Log3($name,5, "fsp_devel getcmd in manual mode" . __LINE__);
+		fsp_devel_sendRequests($hash);
 	}
 }
 #######################################
@@ -491,7 +502,7 @@ sub fsp_devel_sendRequests{
 	Log3($name,4, "fsp_devel addCMD length $len before adding _Line:" . __LINE__);
 	foreach(@{$hash->{helper}{addCMD}}){
 		Log3($name,4, "fsp_devel addCMD adding item $_ _Line:" . __LINE__);
-		push(@{$hash->{actionQueue}}, $_ );
+		push(@{$hash->{actionQueue}}, shift(@{$hash->{helper}{addCMD}}));
 	}
 	$len = @{$hash->{actionQueue}};
 	Log3($name,4, "fsp_devel addCMD length $len after adding _Line:" . __LINE__);
@@ -500,14 +511,16 @@ sub fsp_devel_sendRequests{
 	Log3($name,4, "fsp_devel actionQueue length $length _Line:" . __LINE__);
 	if($length > 0){
 		#nehme den ersten Wert aus dem array und sende ihn
-		my $req = pop( @{$hash->{actionQueue}});
+		my $req = shift( @{$hash->{actionQueue}});
 		Log3($name,4, "fsp_devel sendRequests sende $req _Line:" . __LINE__);
 		DevIo_SimpleWrite($hash,$req,1);
 		#tue gar nichts weiter, denn du wirst vom read aufgerufen
 	} else {
 		#rufe prepareRequests auf
 		Log3($name,4, "fsp_devel sendRequests _Line: auf" . __LINE__);
-		InternalTimer(gettimeofday()+10,'fsp_devel_prepareRequests',$hash);
+		if($hash->{MODE} eq "automatic"){
+			InternalTimer(gettimeofday()+300,'fsp_devel_prepareRequests',$hash);
+		}
 	}
 }
 ####################################
@@ -518,7 +531,7 @@ sub fsp_devel_Read($$)
 	$hash->{CONNECTION} = "established";
 	Log3($name,4, "fsp_devel jetzt wird gelesen _Line:" . __LINE__);
         my $buf =  DevIo_SimpleRead($hash);
-	Log3($name,5, "fsp_devel buffer: $buf");
+	Log3($name,5, "fsp_devel buffer: $buf _Line: " . __LINE__);
 	if (!defined($buf)  || $buf eq "")
 	{ 
 		
@@ -532,8 +545,12 @@ sub fsp_devel_Read($$)
 	## check if received Data is complete
 	#
 	my $value = unpack "H*", $hash->{helper}{recv};
+	Log3($name,5, "fsp_devel devpack_hex: $value _Line: " . __LINE__ );
 	$hash->{helper}{received_hex} = $value;
-	if ($value =~ /5e(.*)....0d/){
+	if ($value =~ /^5e(.*)....0d$/){
+	my $dev = pack ('H*',$1);
+#	Log3($name,5, "fsp_devel devpack: $dev _Line: " . __LINE__ );
+#	Log3($name,5, "fsp_devel devpack_helper: $hash->{helper}{recv} _Line: " . __LINE__ );
 	
 #	readingsSingleUpdate($hash,"1_recv_hex",$1,1);
 	
@@ -544,6 +561,8 @@ sub fsp_devel_Read($$)
 		$out .= $part;
 	}
 	$hash->{helper}{received_ascii} = $out;
+	Log3($name,5, "fsp_devel received_ascii: $out _Line: " . __LINE__ );
+
 #	readingsSingleUpdate($hash,"1_recv_ascii",$out,1);
 	fsp_devel_analyzeAnswer($hash);
 	$hash->{helper}{recv} = "";
@@ -635,16 +654,18 @@ sub fsp_devel_analyzeAnswer
 	
 	my @splits = split(",",$data);
 	
+	 readingsBeginUpdate($hash);
 	my $factor= undef;
 		$factor = $splits[0] == 0 ? -1 : 1;
-		readingsSingleUpdate($hash,"grid_power_calibration_total",int($splits[1])*$factor,1);
+		readingsBulkUpdate($hash,"grid_power_calibration_total",int($splits[1])*$factor,1);
 		$factor = $splits[2] == 0 ? -1 : 1;
-		readingsSingleUpdate($hash,"grid_power_calibration_R",int($splits[3])*$factor,1);
+		readingsBulkUpdate($hash,"grid_power_calibration_R",int($splits[3])*$factor,1);
 		$factor = $splits[4] == 0 ? -1 : 1;
-		readingsSingleUpdate($hash,"grid_power_calibration_S",int($splits[5])*$factor,1);
+		readingsBulkUpdate($hash,"grid_power_calibration_S",int($splits[5])*$factor,1);
 		$factor = $splits[6] == 0 ? -1 : 1;
-		readingsSingleUpdate($hash,"grid_power_calibration_T",int($splits[7])*$factor,1);
+		readingsBulkUpdate($hash,"grid_power_calibration_T",int($splits[7])*$factor,1);
 
+	 readingsEndUpdate($hash,1);
 	}elsif($order eq "D005"){ ## Query Working Mode, P004MOD, 5e503030344d4f440d
 	my $state;
 		if($data ==0){
