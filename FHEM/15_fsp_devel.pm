@@ -17,7 +17,7 @@ my %requests_30 = (
 	'P004MOD' => "5e503030344d4f440d" # Query Working Mode ## 30 sek
 );
 
-
+###############################
 sub
 fsp_devel_Initialize($)
 {
@@ -31,7 +31,7 @@ fsp_devel_Initialize($)
   $hash->{NotifyFn}    = "fsp_devel_Notify";
   $hash->{ReadFn}    = "fsp_devel_Read";
   $hash->{ReadyFn}    = "fsp_devel_Ready";
-$hash->{AttrList}	= $readingFnAttributes . " mode:manual,automatic";
+$hash->{AttrList}	= $readingFnAttributes . " mode:manual,automatic interval:2,5,10";
 }
 
 #####################################
@@ -56,6 +56,10 @@ if(@a < 3 || @a > 5){
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "fsp_devel_DoInit" );
   Log3($name, 1, "fsp_devel DevIO_OpenDev_Define" . __LINE__); 
+  $hash->{MODE} = AttrVal($name,"mode","automatic");
+  $hash->{INTERVAL} = AttrVal($name,"interval",2);
+  fsp_devel_prepareRequests("prepare:$name");
+  
   return $ret;
 }
 
@@ -66,7 +70,6 @@ fsp_devel_DoInit($)
  my ($hash) = @_;
  my $name = $hash->{NAME};
  Log3($name, 2, "DoInitfkt");
-## InternalTimer(gettimeofday()+2,'fsp_devel_TimerSendRequests',$hash);
 }
 ###########################################
 #_ready-function for reconnecting the Device
@@ -94,14 +97,21 @@ if( grep /^ATTR.$name.mode/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
         Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__; 
         $hash->{MODE} = AttrVal($name,"mode","automatic");
 }
+if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
+        Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__; 
+        $hash->{INTERVAL} = AttrVal($name,"interval",2);
+	RemoveInternalTimer($hash); # Stoppe Timer
+	InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
+}
 
 
 Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify got events @{$events} Line: " . __LINE__;  
-#pylontech_TimerGetData($hash) if( grep /^INITIALIZED$/,@{$events}
-#                                or grep /^CONNECTED$/,@{$events}
-#                                or grep /^DELETEATTR.$name.disable$/,@{$events}
-#                                or grep /^DELETEATTR.$name.interval$/,@{$events}
-#                                or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
+fsp_devel_prepareRequests("prepare:$name") if( grep /^INITIALIZED$/,@{$events}
+                                or grep /^CONNECTED$/,@{$events}
+                                or grep /^DELETEATTR.$name.disable$/,@{$events}
+                                or grep /^DELETEATTR.$name.interval$/,@{$events}
+                                or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
+
 
 
 
@@ -137,18 +147,18 @@ sub fsp_devel_Set($@){
 			Log3($name,5, "fsp_devel cmd in automatic mode" . __LINE__);
 			RemoveInternalTimer($hash); # Stoppe Timer
 			push(@{$hash->{helper}{addCMD}}, $a[2] );
-			InternalTimer(gettimeofday()+2,'fsp_devel_prepareRequests',$hash);
+			InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
 		} else{
 			Log3($name,5, "fsp_devel cmd in manual mode" . __LINE__);
 			push(@{$hash->{helper}{addCMD}}, $a[2] );
-			fsp_devel_sendRequests($hash);
+			fsp_devel_sendRequests("send:$name");
 		}
 		readingsSingleUpdate($hash,"1_lastcmd",$a[2],1);
 	return;	
 	}
   	if ($a[1] eq "timer"){
 	Log3($name,5, "fsp_devel argument timer" . __LINE__);
-	InternalTimer(gettimeofday()+2,'fsp_devel_prepareRequests',$hash);
+	InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
 	}
 	my $setcmd = $a[1];
 	my $setvalue_hex;
@@ -319,10 +329,10 @@ sub fsp_devel_Set($@){
 	if($hash->{MODE} eq "automatic"){
 		Log3($name,5, "fsp_devel setcmd in automatic mode" . __LINE__);
 		RemoveInternalTimer($hash); # Stoppe Timer
-		fsp_devel_sendRequests($hash);
+		fsp_devel_sendRequests("send:$name");
 	} else{
 		Log3($name,5, "fsp_devel setcmd in manual mode" . __LINE__);
-		fsp_devel_sendRequests($hash);
+		fsp_devel_sendRequests("send:$name");
 	}
 }
 #####################################
@@ -459,19 +469,23 @@ sub fsp_devel_Get($@){
 	}
 	if($hash->{MODE} eq "automatic"){
 		Log3($name,5, "fsp_devel getcmd in automatic mode" . __LINE__);
-		RemoveInternalTimer($hash); # Stoppe Timer
-		fsp_devel_sendRequests($hash);
+		RemoveInternalTimer("send:$name"); # Stoppe Timer
+		fsp_devel_sendRequests("send:$name");
 	} else{
 		Log3($name,5, "fsp_devel getcmd in manual mode" . __LINE__);
-		fsp_devel_sendRequests($hash);
+		fsp_devel_sendRequests("send:$name");
 	}
 }
 #######################################
 sub fsp_devel_prepareRequests{
 	
-	my ($hash) = @_;
-	my $name = $hash->{NAME};
+#	my ($hash) = @_;
+#	my $name = $hash->{NAME};
+	my ($calltype,$name) = split(':', $_[0]);
+	my $hash = $defs{$name};
 	Log3($name,4, "fsp_devel prepareRequests _Line:" . __LINE__);
+
+	if ($calltype eq 'prepare'){
 	#leere das array
 	#$hash->{actionQueue} 	= [];
 	#fülle das array mit den abzufragenden werten
@@ -488,15 +502,22 @@ sub fsp_devel_prepareRequests{
 	$hash->{helper}{timer1} = gettimeofday();
 	}
 	#rufe sendRequests auf
-	fsp_devel_sendRequests($hash);
+	fsp_devel_sendRequests("send:$name");
+	}elsif($calltype eq 'watchdog'){
+		
+	}	
+
 }
 
 
 sub fsp_devel_sendRequests{
 
-	my ($hash) = @_;
-	my $name = $hash->{NAME};
-	Log3($name,4, "fsp_devel sendRequests _Line:" . __LINE__);
+	#my ($hash) = @_;
+	#my $name = $hash->{NAME};
+	my ($calltype,$name) = split(':', $_[0]);
+	my $hash = $defs{$name};
+	Log3($name,4, "fsp_devel sendRequests calltype $calltype _Line:" . __LINE__);
+	
 	# anzahl der Items bestimmen
 	my $len = @{$hash->{actionQueue}};
 	Log3($name,4, "fsp_devel addCMD length $len before adding _Line:" . __LINE__);
@@ -515,11 +536,14 @@ sub fsp_devel_sendRequests{
 		Log3($name,4, "fsp_devel sendRequests sende $req _Line:" . __LINE__);
 		DevIo_SimpleWrite($hash,$req,1);
 		#tue gar nichts weiter, denn du wirst vom read aufgerufen
+		# doch, starte einen Watchdog-Timer, falls das Read nicht antwortet
+		InternalTimer(gettimeofday()+1,'fsp_devel_sendRequests',"watchdog:$name");
+
 	} else {
 		#rufe prepareRequests auf
-		Log3($name,4, "fsp_devel sendRequests _Line: auf" . __LINE__);
+		Log3($name,4, "fsp_devel sendRequests _Line: " . __LINE__);
 		if($hash->{MODE} eq "automatic"){
-			InternalTimer(gettimeofday()+300,'fsp_devel_prepareRequests',$hash);
+			InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
 		}
 	}
 }
@@ -566,7 +590,9 @@ sub fsp_devel_Read($$)
 #	readingsSingleUpdate($hash,"1_recv_ascii",$out,1);
 	fsp_devel_analyzeAnswer($hash);
 	$hash->{helper}{recv} = "";
-	fsp_devel_sendRequests($hash);
+	## Watchdog-Timer entfernen, da Antwort empfangen und verarbeitet.
+	RemoveInternalTimer("watchdog:$name");
+	fsp_devel_sendRequests("send:$name");
 	}
 	return;
 }
