@@ -8,8 +8,17 @@ use strict;
 use warnings;
 use DevIo;
 
-my %requests = (
-    'NOP'        => "200146900000FDAA",      ## Number of Packs Check FDAA
+my %req_warn = (
+    'WARN1' => "20014644E00201FD33",    ## Warnings of the Cells
+    'WARN2' => "20014644E00202FD32",    ## Warnings of the Cells
+    'WARN3' => "20014644E00203FD31",    ## Warnings of the Cells
+    'WARN4' => "20014644E00204FD30",    ## Warnings of the Cells
+    'WARN5' => "20014644E00205FD2F",    ## Warnings of the Cells
+    'WARN6' => "20014644E00206FD2E",    ## Warnings of the Cells
+    'WARN7' => "20014644E00207FD2D",    ## Warnings of the Cells
+    'WARN8' => "20014644E00208FD2C"     ## Warnings of the Cells
+);
+my %req_packstate = (
     'PACKSTATE1' => "20014692E00201FD30",    ## Number of Packs
     'PACKSTATE2' => "20014692E00202FD2F",    ## Number of Packs
     'PACKSTATE3' => "20014692E00203FD2E",    ## Number of Packs
@@ -17,8 +26,9 @@ my %requests = (
     'PACKSTATE5' => "20014692E00205FD2C",    ## Number of Packs
     'PACKSTATE6' => "20014692E00206FD2B",    ## Number of Packs
     'PACKSTATE7' => "20014692E00207FD2A",    ## Number of Packs
-
-    #	'PACKSTATE8' => "20014692E00208FD29", ## Number of Packs
+    'PACKSTATE8' => "20014692E00208FD29"     ## Number of Packs
+);
+my %req_cell = (
     'CELL1' => "20014642E00201FD35",         ## Values of Cells, voltages, temperatures
     'CELL2' => "20014642E00202FD34",         ## Values of Cells, voltages, temperatures
     'CELL3' => "20014642E00203FD33",         ## Values of Cells, voltages, temperatures
@@ -26,18 +36,11 @@ my %requests = (
     'CELL5' => "20014642E00205FD31",         ## Values of Cells, voltages, temperatures
     'CELL6' => "20014642E00206FD30",         ## Values of Cells, voltages, temperatures
     'CELL7' => "20014642E00207FD2F",         ## Values of Cells, voltages, temperatures
-
-    #	'CELL8' => "20014642E00208FD2E", ## Values of Cells, voltages, temperatures
-    'WARN1' => "20014644E00201FD33",         ## Warnings of the Cells
-    'WARN2' => "20014644E00202FD32",         ## Warnings of the Cells
-    'WARN3' => "20014644E00203FD31",         ## Warnings of the Cells
-    'WARN4' => "20014644E00204FD30",         ## Warnings of the Cells
-    'WARN5' => "20014644E00205FD2F",         ## Warnings of the Cells
-    'WARN6' => "20014644E00206FD2E",         ## Warnings of the Cells
-    'WARN7' => "20014644E00207FD2D",         ## Warnings of the Cells
-
-    #	'WARN8' => "20014644E00208FD2C" ## Warnings of the Cells
-##	'VERSION' => "200146510000FDAD", ## Firmware version
+    'CELL8' => "20014642E00208FD2E"          ## Values of Cells, voltages, temperatures
+);
+my %req_adm = (
+    'NOP'     => "200146900000FDAA",         ## Number of Packs Check FDAA
+    'VERSION' => "200146510000FDAD"          ## Firmware version
 );
 
 #####################################
@@ -118,7 +121,7 @@ sub pylontech_Notify
     my $events  = deviceEvents( $dev, 1 );
     Log3 $name, 4, "pylontech ($name) - pylontech_Notify - not disabled  Line: " . __LINE__;
     return if ( !$events );
-    if ( grep /^ATTR.$name.interval/, @{$events} or grep /^INITIALIZED$/, @{$events} )
+    if ( grep { /^ATTR.$name.interval/ } @{$events} or grep { /^INITIALIZED$/ } @{$events} )
     {
         Log3 $name, 4, "pylontech ($name) - pylontech_Notify change Interval to AttrVal($name,interval,60) _Line: " . __LINE__;
         $hash->{INTERVAL} = AttrVal( $name, "interval", 60 );
@@ -126,13 +129,11 @@ sub pylontech_Notify
 
     Log3 $name, 4, "pylontech ($name) - pylontech_Notify got events @{$events} Line: " . __LINE__;
     pylontech_TimerGetData($hash)
-      if (
-        grep /^INITIALIZED$/,
-        @{$events} or grep /^CONNECTED$/,
-        @{$events} or grep /^DELETEATTR.$name.disable$/,
-        @{$events} or grep /^DELETEATTR.$name.interval$/,
-        @{$events} or ( grep /^DEFINED.$name$/, @{$events} and $init_done )
-      );
+      if ( grep { /^INITIALIZED$/ } @{$events}
+        or grep { /^CONNECTED$/ } @{$events}
+        or grep { /^DELETEATTR.$name.disable$/ } @{$events}
+        or grep { /^DELETEATTR.$name.interval$/ } @{$events}
+        or ( grep { /^DEFINED.$name$/ } @{$events} and $init_done ) );
 
     return;
 
@@ -251,7 +252,8 @@ sub pylontech_TimerGetData
 ####################################
 sub pylontech_sendRequests
 {
-    my ( $calltype, $name ) = split( ':', $_[0] );
+    my $callparam = shift // return 'Not enough Arguments';
+    my ( $calltype, $name ) = split( ':', $callparam );
     my $hash = $defs{$name};
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests calltype $calltype  Line: " . __LINE__;
     if ( $calltype eq "resend" )
@@ -340,33 +342,25 @@ sub pylontech_Read
         {
 
             Log3( $name, 5, "pylontech Error: $receive{'CID2'} Line:" . __LINE__ );
-
             my $error;
-            if ( $receive{'CID2'} eq "01" )
+
+            my %cid2_errorcodes = (
+
+                # blah
+                '01' => 'Version Error',
+                '02' => 'CHKSUM Error',
+                '03' => 'LCHKSUM Error',
+                '04' => 'CID2 Invalidation Error',
+                '05' => 'Command Format Error',
+                '06' => 'Invalid Data Error',
+                '90' => 'Address Error',
+                '91' => 'Communication Error',
+            );
+            if ( defined( $receive{'CID2'} ) )
             {
-                $error = "Version Error";
-            } elsif ( $receive{'CID2'} eq "02" )
-            {
-                $error = "CHKSUM Error";
-            } elsif ( $receive{'CID2'} eq "03" )
-            {
-                $error = "LCHKSUM Error";
-            } elsif ( $receive{'CID2'} eq "04" )
-            {
-                $error = "CID2 invalidation";
-            } elsif ( $receive{'CID2'} eq "05" )
-            {
-                $error = "Commnd Format Error";
-            } elsif ( $receive{'CID2'} eq "06" )
-            {
-                $error = "Invalid Data";
-            } elsif ( $receive{'CID2'} eq "90" )
-            {
-                $error = "ADR Error";
-            } elsif ( $receive{'CID2'} eq "91" )
-            {
-                $error = "Communication Error";
+                $error = $cid2_errorcodes{ $receive{'CID2'} };
             }
+
             readingsSingleUpdate( $hash, "_error", "$error", 1 );
             Log3( $name, 5, "pylontech Error: $error Line:" . __LINE__ );
             readingsSingleUpdate( $hash, "_status", "communication failed. Proceeding", 1 );
@@ -405,7 +399,6 @@ sub pylontech_analyze_answer
 {
 
     my ( $hash, $value ) = @_;
-    my @values;
     my $name    = $hash->{NAME};
     my $cmd     = $hash->{helper}{key};
     my $success = "failed";
@@ -415,7 +408,6 @@ sub pylontech_analyze_answer
 
     if ( $value =~ /NAK/ )
     {
-        Log3( $name, 3, "pylontech analyzing $values[0] _Line:" . __LINE__ );
         Log3( $name, 4, "pylontech invalid Query, valid Answer. Aborting. _Line:" . __LINE__ );
         ##pylontech_blck_doInternalUpdate($hash);
         $hash->{helper}{key}        = "";
@@ -536,7 +528,7 @@ sub pylontech_analyze_answer
 
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
-    } elsif ( $cmd =~ /WARN(\d)/ )
+    } elsif ( $cmd =~ m/WARN(\d)/xms )
     {
         Log3( $name, 4, "pylontech cmd: analysiere WARN _Line:" . __LINE__ );
 
@@ -793,7 +785,6 @@ sub pylontech_analyze_answer
     } elsif ( $cmd eq "NOP" )
     {
         Log3( $name, 4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__ );
-        ##my ($b,$a) =split(":",$values[0]);
         my $a = $value * 1;
         Log3( $name, 4, "pylontech uebergeben: $a _Line:" . __LINE__ );
         readingsBeginUpdate($hash);
@@ -839,15 +830,14 @@ sub pylontech_calcTotal
 
     my ($hash) = @_;
     my $name = $hash->{NAME};
-    my $numberOfPacks = ReadingsNum( $name, "1_Number_of_Packs", 8 );
-    my $Ah_left       = 0;
-    my $Ah_total      = 0;
-    my $U_total       = 0;
-    my $I_total       = 0;
-    my $P_total       = 0;
-    my $T_total       = 0;
-    my $soc_total     = 0;
-    my $var2;
+    my $numberOfPacks  = ReadingsNum( $name, "1_Number_of_Packs", 8 );
+    my $Ah_left        = 0;
+    my $Ah_total       = 0;
+    my $U_total        = 0;
+    my $I_total        = 0;
+    my $P_total        = 0;
+    my $T_total        = 0;
+    my $soc_total      = 0;
     my $kWh_left_total = 0;
     readingsBeginUpdate($hash);
 
