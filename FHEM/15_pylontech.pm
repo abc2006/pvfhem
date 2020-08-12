@@ -15,7 +15,7 @@ my %requests = (
 	'PACKSTATE5' => "20014692E00205FD2C", ## Number of Packs
 	'PACKSTATE6' => "20014692E00206FD2B", ## Number of Packs
 	'PACKSTATE7' => "20014692E00207FD2A", ## Number of Packs
-	'PACKSTATE8' => "20014692E00208FD29", ## Number of Packs
+#	'PACKSTATE8' => "20014692E00208FD29", ## Number of Packs
 	'CELL1' => "20014642E00201FD35", ## Values of Cells, voltages, temperatures 
 	'CELL2' => "20014642E00202FD34", ## Values of Cells, voltages, temperatures 
 	'CELL3' => "20014642E00203FD33", ## Values of Cells, voltages, temperatures 
@@ -23,7 +23,7 @@ my %requests = (
 	'CELL5' => "20014642E00205FD31", ## Values of Cells, voltages, temperatures 
 	'CELL6' => "20014642E00206FD30", ## Values of Cells, voltages, temperatures 
 	'CELL7' => "20014642E00207FD2F", ## Values of Cells, voltages, temperatures 
-	'CELL8' => "20014642E00208FD2E", ## Values of Cells, voltages, temperatures 
+#	'CELL8' => "20014642E00208FD2E", ## Values of Cells, voltages, temperatures 
 	'WARN1' => "20014644E00201FD33", ## Warnings of the Cells
 	'WARN2' => "20014644E00202FD32", ## Warnings of the Cells
 	'WARN3' => "20014644E00203FD31", ## Warnings of the Cells
@@ -31,7 +31,7 @@ my %requests = (
 	'WARN5' => "20014644E00205FD2F", ## Warnings of the Cells
 	'WARN6' => "20014644E00206FD2E", ## Warnings of the Cells
 	'WARN7' => "20014644E00207FD2D", ## Warnings of the Cells
-	'WARN8' => "20014644E00208FD2C" ## Warnings of the Cells
+#	'WARN8' => "20014644E00208FD2C" ## Warnings of the Cells
 ##	'VERSION' => "200146510000FDAD", ## Firmware version
 	);
 
@@ -245,11 +245,11 @@ if($hash->{helper}{key} eq "" || $hash->{helper}{retrycount} > 10)
 {
 	$hash->{helper}{value} = pop( @{$hash->{actionQueue}} );
 	$hash->{helper}{key} = pop( @{$hash->{actionQueue}} );
-	 $hash->{helper}{retrycount} = 0;
-	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests key == '', next one  Line: " . __LINE__;	
+	$hash->{helper}{retrycount} = 0;
+	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests key was '', getting next one: $hash->{helper}{key} Line: " . __LINE__;	
 }else{
 	$hash->{helper}{retrycount}++;
-	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests key ($hash->{helper}{key}) != '', retry. retryCount is  $hash->{helper}{retrycount} Line: " . __LINE__;	
+	Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests key $hash->{helper}{key} != '', retry. retryCount is  $hash->{helper}{retrycount} Line: " . __LINE__;	
 }
 
 
@@ -311,6 +311,7 @@ $hash->{helper}{recv} = "";
 #?### just take the last (first?) four
 
 
+Log3 $name, 5, "pylontech ($name) - pylontech_sendRequests unpack: $hash->{helper}{value}  Line: " . __LINE__;	
 my $send = "7E" . unpack("H*", $hash->{helper}{value}) . "0D";
 Log3 $name, 3, "pylontech ($name) - pylontech_sendRequests sendString: $send  Line: " . __LINE__;	
 
@@ -366,9 +367,13 @@ sub pylontech_Read($$)
 	$empfang{'ADR'} = substr($1,2,2);
 	$empfang{'CID1'} = substr($1,4,2); ## muss *immer* 46H sein
 	$empfang{'CID2'} = substr($1,6,2);
+	Log3($name,4, "pylontech ver: $empfang{'Ver'} Line:" . __LINE__);
+	Log3($name,4, "pylontech ADR: $empfang{'ADR'} Line:" . __LINE__);
+	Log3($name,4, "pylontech CID1: $empfang{'CID1'} Line:" . __LINE__);
+	Log3($name,4, "pylontech CID2: $empfang{'CID2'} Line:" . __LINE__);
 	if ($empfang{'CID2'} != 0){
 	
-		Log3($name,5, "pylontech Fehler: $empfang{'CID2'}");
+		Log3($name,5, "pylontech Fehler: $empfang{'CID2'} Line:" . __LINE__);
 	
 		my $error;
 		if ($empfang{'CID2'} eq "01"){
@@ -389,27 +394,22 @@ sub pylontech_Read($$)
 			$error = "Communication Error";
 		}
 	readingsSingleUpdate($hash, "_error","$error",1);
-	Log3($name,5, "pylontech Fehler: $error");
+	Log3($name,5, "pylontech Fehler: $error Line:" . __LINE__);
 	readingsSingleUpdate($hash, "_status","communication failed. Proceeding",1);
-	}
+	}else {
 	
 
 
 	$empfang{'LENHEX'} = substr($1,8,4);
+	Log3($name,4, "pylontech LENHEX: $empfang{'LENHEX'} Line:" . __LINE__);
 	$empfang{'LEN'} = hex(substr($1,9,3));
+	Log3($name,4, "pylontech LEN: $empfang{'LEN'} Line:" . __LINE__);
 	if($empfang{'LEN'} > 0){
 		$empfang{'INFO'} = substr($1,12,$empfang{'LEN'});
+		Log3($name,4, "pylontech INFO: $empfang{'INFO'} Line:" . __LINE__);
+		pylontech_analyze_answer($hash, $empfang{'INFO'});
 	}
-	
-	my @splits = split(" ",$empfang{'INFO'});
-	Log3($name,4, "pylontech ver: $empfang{'Ver'}");
-	Log3($name,4, "pylontech ADR: $empfang{'ADR'}");
-	Log3($name,4, "pylontech CID1: $empfang{'CID1'}");
-	Log3($name,4, "pylontech CID2: $empfang{'CID2'}");
-	Log3($name,4, "pylontech LENHEX: $empfang{'LENHEX'}");
-	Log3($name,4, "pylontech LEN: $empfang{'LEN'}");
-	Log3($name,4, "pylontech INFO: $empfang{'INFO'}");
-	pylontech_analyze_answer($hash, $empfang{'INFO'});
+}
 
 
 
