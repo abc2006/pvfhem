@@ -39,9 +39,9 @@ my %req_cell = (
     'CELL8' => "20014642E00208FD2E"          ## Values of Cells, voltages, temperatures
 );
 my %req_adm = (
-    'NOP' => "200146900000FDAA"              ## Number of Packs Check FDAA
-
-      #    'VERSION' => "200146510000FDAD"          ## Firmware version
+    'NOP' => "200146900000FDAA",              ## Number of Packs Check FDAA
+    'VERSION' => "200146510000FDAD",          ## Firmware version
+    'XXX' => "2001464F0000FD99"
 );
 
 #####################################
@@ -160,7 +160,7 @@ sub pylontech_Set
 {
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd:2001464F0000";
     my $ret;
     my $minInterval = 30;
     Log3( $name, 4, "pylontech argument $a[1] _Line: " . __LINE__ );
@@ -193,6 +193,9 @@ sub pylontech_Set
         @{ $hash->{actionQueue} } = (); # empty array
         Log3( $name, 1, "pylontech_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__ );
         InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+    }elsif($a[1] eq "cmd"){
+	    my $val = pylontech_addChecksum($a[2]);
+            Log3( $name, 1, "pylontech_Set  cmd=$a[2], return= $val" . __LINE__ );
     }
 
     return;
@@ -800,6 +803,14 @@ sub pylontech_analyze_answer
 
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
+    } elsif ( $cmd eq "XXX" )
+    {
+        Log3( $name, 4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__ );
+        readingsBeginUpdate($hash);
+        readingsBulkUpdate( $hash, "XXX", $value, 1 );
+        readingsEndUpdate( $hash, 1 );
+        Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
+        $success = "success";
     } elsif ( $cmd eq "NOP" )
     {
         Log3( $name, 4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__ );
@@ -893,7 +904,20 @@ sub pylontech_calcTotal
     readingsEndUpdate( $hash, 1 );
     return;
 }
+sub pylontech_addChecksum{
 
+##	my $v = "20014692E00208";
+	my $order = shift;
+	my @r = split(//,$order);
+	my $var;
+	foreach (@r) {
+		    $var += hex(unpack("H*",$_));
+	    }
+	my $output = $var ^ eval "0b1111111111111111";
+	my $checksum = sprintf("%X", $output+1);
+	return $order . $checksum;
+	   
+}
 1;
 
 =pod
