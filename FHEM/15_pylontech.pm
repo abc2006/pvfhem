@@ -7,46 +7,77 @@ package main;
 use strict;
 use warnings;
 use DevIo;
-
+## default Vars
+##{{{
 my %req_warn = (
-    'WARN1' => "20014644E00201FD33",    ## Warnings of the Cells
-    'WARN2' => "20014644E00202FD32",    ## Warnings of the Cells
-    'WARN3' => "20014644E00203FD31",    ## Warnings of the Cells
-    'WARN4' => "20014644E00204FD30",    ## Warnings of the Cells
-    'WARN5' => "20014644E00205FD2F",    ## Warnings of the Cells
-    'WARN6' => "20014644E00206FD2E",    ## Warnings of the Cells
-    'WARN7' => "20014644E00207FD2D",    ## Warnings of the Cells
-    'WARN8' => "20014644E00208FD2C"     ## Warnings of the Cells
+	## get alarm information; 3.7
+    'WARN1' => "20014644E00201",    ## Warnings of the Cells
+    'WARN2' => "20014644E00202",    ## Warnings of the Cells
+    'WARN3' => "20014644E00203",    ## Warnings of the Cells
+    'WARN4' => "20014644E00204",    ## Warnings of the Cells
+    'WARN5' => "20014644E00205",    ## Warnings of the Cells
+    'WARN6' => "20014644E00206",    ## Warnings of the Cells
+    'WARN7' => "20014644E00207",    ## Warnings of the Cells
+    'WARN8' => "20014644E00208"     ## Warnings of the Cells
 );
+my %req_warn_sm = (
+	'WARN' => "44E002"
+);	## Warnings of the Cells
 my %req_packstate = (
-    'PACKSTATE1' => "20014692E00201FD30",    ## Number of Packs
-    'PACKSTATE2' => "20014692E00202FD2F",    ## Number of Packs
-    'PACKSTATE3' => "20014692E00203FD2E",    ## Number of Packs
-    'PACKSTATE4' => "20014692E00204FD2D",    ## Number of Packs
-    'PACKSTATE5' => "20014692E00205FD2C",    ## Number of Packs
-    'PACKSTATE6' => "20014692E00206FD2B",    ## Number of Packs
-    'PACKSTATE7' => "20014692E00207FD2A",    ## Number of Packs
-    'PACKSTATE8' => "20014692E00208FD29"     ## Number of Packs
+	## get analog value; 3.5
+    'PACKSTATE1' => "20014692E00201",    ## Number of Packs
+    'PACKSTATE2' => "20014692E00202",    ## Number of Packs
+    'PACKSTATE3' => "20014692E00203",    ## Number of Packs
+    'PACKSTATE4' => "20014692E00204",    ## Number of Packs
+    'PACKSTATE5' => "20014692E00205",    ## Number of Packs
+    'PACKSTATE6' => "20014692E00206",    ## Number of Packs
+    'PACKSTATE7' => "20014692E00207",    ## Number of Packs
+    'PACKSTATE8' => "20014692E00208"     ## Number of Packs
 );
+my $req_packstate_sm = "92E002"; ## get analog Values 
 my %req_cell = (
-    'CELL1' => "20014642E00201FD35",         ## Values of Cells, voltages, temperatures
-    'CELL2' => "20014642E00202FD34",         ## Values of Cells, voltages, temperatures
-    'CELL3' => "20014642E00203FD33",         ## Values of Cells, voltages, temperatures
-    'CELL4' => "20014642E00204FD32",         ## Values of Cells, voltages, temperatures
-    'CELL5' => "20014642E00205FD31",         ## Values of Cells, voltages, temperatures
-    'CELL6' => "20014642E00206FD30",         ## Values of Cells, voltages, temperatures
-    'CELL7' => "20014642E00207FD2F",         ## Values of Cells, voltages, temperatures
-    'CELL8' => "20014642E00208FD2E"          ## Values of Cells, voltages, temperatures
+    'CELL1' => "20014642E00201",         ## Values of Cells, voltages, temperatures
+    'CELL2' => "20014642E00202",         ## Values of Cells, voltages, temperatures
+    'CELL3' => "20014642E00203",         ## Values of Cells, voltages, temperatures
+    'CELL4' => "20014642E00204",         ## Values of Cells, voltages, temperatures
+    'CELL5' => "20014642E00205",         ## Values of Cells, voltages, temperatures
+    'CELL6' => "20014642E00206",         ## Values of Cells, voltages, temperatures
+    'CELL7' => "20014642E00207",         ## Values of Cells, voltages, temperatures
+    'CELL8' => "20014642E00208"          ## Values of Cells, voltages, temperatures
 );
+
+my $req_cell_sm = "42E002"; ## Values of Cells, voltages, temperatures
+
 my %req_adm = (
-    'NOP' => "200146900000FDAA",              ## Number of Packs Check FDAA
-    'VERSION' => "200146510000FDAD",          ## Firmware version
-    'XXX' => "2001464F0000FD99"
+##    'NOP' => "200146900000",              ## Number of Packs Check FDAA ##get Pack Number 3.2 Packs as Attribute
+    'VERSION' => "200146510000",          ## Firmware version ## get Manufacturer information; 3.3
+    'XXX' => "2001464F0000"	      ## get Protocol version; 3.1	
 );
+
+my %requests = (
+    'CELL' => "42E002",         ## Values of Cells, voltages, temperatures
+    'WARN' => "44E002",    ## Warnings of the Cells
+    'PACK' => "92E002"    ## Number of Packs
+);
+##my $ver_hex = "3230"; version
+##my $adr = ""; ## Adr: 01 for 232; 02-09 for 485
+##my $cid1_hex = "46";
+##my $ord_hex = "42";# specifies what i really want to know
+##my $length_hex = "E0";
+##my $info = ""; ##Number of pack. Adr: 01-08 for RS232; Adr: 02-09 for RS485. same as $adr.
+##my $chksum = ""; ## wird später über den kompletten befehl berechnet
+
+##my $adr_hex = ""; ## $adr in hex umwandeln;
+##
+##my $compound .= $ver_hex . $adr_hex . $cid_hex . $ord_hex . $length_hex . $info_hex
+
+
+##}}}
 
 #####################################
 sub pylontech_Initialize
 {
+##{{{
     my ($hash) = @_;
 
     #require "$attr{global}{modpath}/FHEM/DevIo.pm";
@@ -58,8 +89,9 @@ sub pylontech_Initialize
     $hash->{NotifyFn} = "pylontech_Notify";
     $hash->{ReadFn}   = "pylontech_Read";
     $hash->{ReadyFn}  = "pylontech_Ready";
-    $hash->{AttrList} = "interval Anschluss unknown_as_reading:yes,no " . $readingFnAttributes;
-
+    $hash->{AttrFn}   = "pylontech_Attr";
+    $hash->{AttrList} = "unknown_as_reading:yes,no protocol:RS232,RS485 nop:1,2,3,4,5,6,7,8 " . $readingFnAttributes;
+    
     $hash->{helper}{value}           = q{};
     $hash->{helper}{key}             = q{};
     $hash->{helper}{timer_adm}       = q{};
@@ -67,11 +99,13 @@ sub pylontech_Initialize
     $hash->{helper}{timer_cell}      = q{};
     $hash->{helper}{timer_packstate} = q{};
     return;
+##}}}
 }
 
 #####################################
 sub pylontech_Define
 {
+##{{{
     my ( $hash, $def ) = @_;
     my @a = split( "[ \t][ \t]*", $def );
 
@@ -87,7 +121,6 @@ sub pylontech_Define
     ## $hash->DeviceName keeps the name of the io-Device. Without this, DevIO does not work.
     $hash->{DeviceName}  = $device;
     $hash->{NOTIFYDEV}   = "global";
-    $hash->{INTERVAL}    = AttrVal( $name, "interval", 60 );
     $hash->{actionQueue} = [];
 
     #close connection if maybe open (on definition modify)
@@ -96,30 +129,38 @@ sub pylontech_Define
 	    DevIo_CloseDev($hash);
     }
     Log3( $name, 4, "pylontech DevIO_OpenDev_Define" . __LINE__ );
-    InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+    readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
+    
+    InternalTimer( gettimeofday() + 10, 'pylontech_sendRequests', $hash );
     return DevIo_OpenDev( $hash, 0, "pylontech_DoInit" );
+##}}}
 }
 ########
 sub pylontech_DoInit
 {
+##{{{
     my ($hash) = @_;
     my $name = $hash->{NAME};
     Log3( $name, 2, "DoInitfkt" );
     return;
+##}}}
 }
 ###########################################
 #_ready-function for reconnecting the Device
 # function is called, when connection is down.
 sub pylontech_Ready
 {
+##{{{
     my ($hash) = @_;
     my $name = $hash->{NAME};
     $hash->{helper}{newconn} = 'true';    ## remind the new connection and ask for number of packs
     return DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
+##}}}
 }
 ###################################
 sub pylontech_Notify
 {
+##{{{
     #    my ( $hash, $dev ) = @_;
     #    my $name = $hash->{NAME};
     #
@@ -130,47 +171,61 @@ sub pylontech_Notify
     #    my $events  = deviceEvents( $dev, 1 );
     #    Log3 $name, 4, "pylontech ($name) - pylontech_Notify - not disabled  Line: " . __LINE__;
     #    return if ( !$events );
-    #    if ( grep { /^ATTR.$name.interval/ } @{$events} or grep { /^INITIALIZED$/ } @{$events} )
-    #    {
-    #        Log3 $name, 4, "pylontech ($name) - pylontech_Notify change Interval to AttrVal($name,interval,60) _Line: " . __LINE__;
-    #        $hash->{INTERVAL} = AttrVal( $name, "interval", 60 );
-    #    }
-    #
     #    Log3 $name, 4, "pylontech ($name) - pylontech_Notify got events @{$events} Line: " . __LINE__;
     #    	InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
     #      if ( grep { /^INITIALIZED$/ } @{$events}
     #        or grep { /^CONNECTED$/ } @{$events}
     #        or grep { /^DELETEATTR.$name.disable$/ } @{$events}
-    #        or grep { /^DELETEATTR.$name.interval$/ } @{$events}
     #        or ( grep { /^DEFINED.$name$/ } @{$events} and $init_done ) );
     #
     return;
 
+##}}}
 }
 #####################################
 sub pylontech_Undef
 {
+##{{{
     my ( $hash, $name ) = @_;
     DevIo_CloseDev($hash);
     RemoveInternalTimer($hash);
     return;
+##}}}
 }
 #####################################
+sub pylontech_Attr
+{
+##{{{
+    my ( $cmd, $name, $attrName, $attrValue  ) = @_;
+    my $hash = $defs{$name};
+    $hash->{helper}{$attrName} = $attrValue;
+    
+    Log3( $name, 1, "pylontech attr $attrName $attrValue _Line: " . __LINE__ );
+    Log3( $name, 1, "pylontech attr $hash->{helper}{nop} _Line: " . __LINE__ );
+ return;
+##}}}
+}
+#######################################
 sub pylontech_Set
 {
+##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd:2001464F0000";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg ";
     my $ret;
-    my $minInterval = 30;
     Log3( $name, 4, "pylontech argument $a[1] _Line: " . __LINE__ );
     if ( $a[1] eq '?' )
     {
         Log3( $name, 4, "pylontech argument question _Line: " . __LINE__ );
         return $usage;
-    }
-    if ( $a[1] eq 'reopen' )
+    }elsif(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
+    	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
+    	return;
+	}elsif ( $a[1] eq 'sendRequests'){
+	    pylontech_sendRequests($hash);
+    }elsif ( $a[1] eq 'reopen' )
     {
+    	RemoveInternalTimer($hash);
         if ( DevIo_IsOpen($hash) )
         {
             Log3( $name, 1, "Device is open, closing ... Line: " . __LINE__ );
@@ -185,24 +240,65 @@ sub pylontech_Set
             $ret = DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
             sleep 1;
         }
+	InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
         return "device opened";
     } elsif ( $a[1] eq "reset" )
     {
+    	RemoveInternalTimer($hash);
         $hash->{helper}{value} = q{}; # empty string
         $hash->{helper}{key}   = q{}; # empty string
         @{ $hash->{actionQueue} } = (); # empty array
         Log3( $name, 1, "pylontech_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__ );
-        InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+    	readingsSingleUpdate($hash, "1_status", "starting sendRequests",1); 
+	InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
     }elsif($a[1] eq "cmd"){
-	    my $val = pylontech_addChecksum($a[2]);
-            Log3( $name, 1, "pylontech_Set  cmd=$a[2], return= $val" . __LINE__ );
+            Log3( $name, 1, "pylontech_Set  cmd=$a[2] _Line: " . __LINE__ );
+	    my $val = pylontech_addChecksum($hash, $a[2]);
+            Log3( $name, 1, "pylontech_Set  cmd=$a[2], return= $val _Line: " . __LINE__ );
+    }elsif($a[1] eq "speed"){
+            my $speed;
+	    if($a[2] ==1200){
+		$speed = "01";
+	}elsif($a[2] ==2400){
+		$speed = "02";
+	}elsif($a[2] ==4800){
+		$speed = "03";
+	}
+	##	'COMMRATE' => "20014691020203xxxx"        ## set communication rate; 3.4
+	my $cmd = "20014691E002" . $speed; 
+	    Log3( $name, 1, "pylontech_Set  cmd=$cmd _Line: " . __LINE__ );
+	    my $val = pylontech_addChecksum($hash, $cmd);
+            Log3( $name, 1, "pylontech_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
+	    my $key = "SPEED";
+            Log3( $name, 1, "pylontech_Set push:  val=$val, key=$key _Line: " . __LINE__ );
+    		return "Befehl in Modul disabled, weil zu gefährlich";
+	    push( @{ $hash->{actionQueue} }, $key );
+	    push( @{ $hash->{actionQueue} }, $val );
+    }elsif($a[1] eq "SoftwareVersion"){
+        my $cmd = "20014696C0040201";    
+	    Log3( $name, 1, "pylontech_Set  cmd=$cmd _Line: " . __LINE__ );
+	    my $key = "SW_VER";
+	    my $val = pylontech_addChecksum($hash, $cmd);
+            Log3( $name, 1, "pylontech_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
+	    push( @{ $hash->{actionQueue} }, $key );
+	    push( @{ $hash->{actionQueue} }, $val );
+    }elsif($a[1] eq "SoftwareVersion2"){
+        my $cmd = "20024696C0040201";    
+	    Log3( $name, 1, "pylontech_Set  cmd=$cmd _Line: " . __LINE__ );
+	    my $key = "SW_VER";
+	    my $val = pylontech_addChecksum($hash, $cmd);
+            Log3( $name, 1, "pylontech_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
+	    push( @{ $hash->{actionQueue} }, $key );
+	    push( @{ $hash->{actionQueue} }, $val );
     }
 
     return;
+##}}}
 }
 #####################################
 sub pylontech_Get
 {
+##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
     my $usage = "Unknown argument $a[1], choose one of calcHex";
@@ -213,130 +309,111 @@ sub pylontech_Get
         return $usage;
     }
     return;
+##}}}
 }
 ############################################
-sub pylontech_fillhelper
+################################################################################
+# prepareRequests reiht die Requests in die ActionQueue ein
+################################################################################
+sub pylontech_fillQueue
 {
-    my ( $hash, %orders ) = @_;
+##{{{
+    my $hash = shift // return 'Not enough Arguments';
     my $name = $hash->{NAME};
-    my $nop  = $hash->{helper}{NOP} // '1'; ## Number of Packs
-    Log3 $name, 5, "pylontech ($name) - pylontech_fillhelper nop: $nop Line: " . __LINE__;
-
-    foreach my $key ( sort( keys %orders ) )
-    {
-        if ( substr( $key, -1, 1 ) <= $nop || $key eq 'NOP')
-        {
-            push( @{ $hash->{actionQueue} }, $key );
-            Log3 $name, 5, "pylontech ($name) _fillhelper fill key: $key  Line: " . __LINE__;
-            push( @{ $hash->{actionQueue} }, $orders{$key} );
-            Log3 $name, 5, "pylontech ($name) _fillhelper fill value: $orders{$key}  Line: " . __LINE__;
-        }
-    }
-
-    return;
-}
-
-sub pylontech_prepareRequests
-{
-    my $hash = shift;
-    my $name = $hash->{NAME};
-    my $now  = gettimeofday();
-    my $delta;
-    Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests now: $now  Line: " . __LINE__;
-
-    $delta = $now - $hash->{helper}{timer_adm};
-    Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests delta_adm: $delta Line: " . __LINE__;
-    if ( $delta > 150 )    # fragt nur administrative Werte ab, die sich fast nie ändern
-    {
-        Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests now: $now minus timer_adm $hash->{helper}{timer_adm} = $delta Line: " . __LINE__;
-	pylontech_fillhelper( $hash, %req_adm );
-	$hash->{helper}{timer_adm} = $now;
-    }
-
-    $delta = $now - $hash->{helper}{timer_warn};
-    Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests delta_warn: $delta Line: " . __LINE__;
-    if ( $delta > 120 )    # warnings, more important than adm, but yet not that far. slow-changing
-    {
-        Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests now: $now minus timer_warn $hash->{helper}{timer_warn} = $delta Line: " . __LINE__;
-        pylontech_fillhelper( $hash, %req_warn );
-        $hash->{helper}{timer_warn} = $now;
-    }
-
-    $delta = $now - $hash->{helper}{timer_packstate};
-    Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests delta_packstate: $delta Line: " . __LINE__;
-    if ( $delta > 60 )     # state of pack, more important than adm, but yet not that far. slow-changing
-    {
-        Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests now: $now minus timer_ packstate $hash->{helper}{timer_packstate} = $delta Line: " . __LINE__;
-        pylontech_fillhelper( $hash, %req_packstate );
-        $hash->{helper}{timer_packstate} = $now;
-    }
-    ## cell information such as power and current. short updates needed, every attr{interval}
-    Log3 $name, 4, "pylontech ($name) - pylontech_prepareRequests now: $now Line: " . __LINE__;
-    pylontech_fillhelper( $hash, %req_cell );
-
-    return;
+    my $nop = $hash->{helper}{nop} // '1';
+    Log3( $name, 1, "pylontech attr $hash->{helper}{nop} _Line: " . __LINE__ );
+	foreach my $key (keys %requests)
+	{
+		#create order
+		my $order = $requests{$key};
+    		Log3 $name, 4, "pylontech ($name) - pylontech_fillQueue key: $key ==> order: $order  Line: " . __LINE__;
+		foreach my $i (1..$nop)
+		{
+		my $out;
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue i: $i  Line: " . __LINE__;
+			if($hash->{helper}{protocol} eq "RS485"){
+				my $ad1 = $i + 1;
+				my $add = "0$ad1";
+    				Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue add: $add  Line: " . __LINE__;
+				$out = "20" . $add . "46" . $order . $add; 
+    				Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue out: $out  Line: " . __LINE__;
+			}elsif($hash->{helper}{protocol} eq "RS232"){
+				my $add = "0" . $i;
+    				Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue add: $add  Line: " . __LINE__;
+				$out = "200146" . $order . $add;
+    				Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue out: $out  Line: " . __LINE__;
+			}else{
+				return;
+			}
+		my $out_chk = pylontech_addChecksum($hash, $out);
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue out_checksum: $out_chk  Line: " . __LINE__;
+        	my $pushval = "7E" . unpack( "H*", $out_chk ) . "0D";
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue out_hex: $pushval  Line: " . __LINE__;
+	    	my $pushkey = $key . $i; 
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue pushkey: $pushkey  Line: " . __LINE__;
+		push( @{ $hash->{actionQueue} }, $pushkey );
+	    	push( @{ $hash->{actionQueue} }, $pushval );
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue pushed  Line: " . __LINE__;
+    		Log3 $name, 5, "pylontech ($name) - pylontech_fillQueue ActionQueue: @{ $hash->{actionQueue}}  Line: " . __LINE__;
+		}
+	}
+return;
+##}}}
 }
 
 ####################################
+# sendrequests schaut, ob in der actionQueue Befehle enthalten sind, falls ja, werden diese ausgeführt. Wenn nein, werden neue eingeladen.
+#########################
 sub pylontech_sendRequests
 {
+##{{{
     my $hash        = shift // return 'Not enough Arguments';
     my $name        = $hash->{NAME};
     my $aq_length   = @{ $hash->{actionQueue} };
     my $modo_length = $aq_length % 2;
+    if(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
+    	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
+    	Log3 $name, 0, "pylontech ($name) - pylontech_sendRequests Module disabled due to missing Attributes protocol and/or nop _Line: " . __LINE__;
+   return;
+   }
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests length: $aq_length  Line: " . __LINE__;
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests modolength: $modo_length  Line: " . __LINE__;
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests ActionQueue: @{ $hash->{actionQueue}}  Line: " . __LINE__;
-    if ( $aq_length > 0 && $modo_length == 0 )
+    if ( $aq_length && !$modo_length )
     {
-
         # get new value/key pair
-        $hash->{helper}{value} = pop( @{ $hash->{actionQueue} } );
-        $hash->{helper}{key}   = pop( @{ $hash->{actionQueue} } );
+        $hash->{helper}{value} = pop( @{ $hash->{actionQueue} } ) // "";
+        $hash->{helper}{key}   = pop( @{ $hash->{actionQueue} } ) // "";
         Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;
         Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests key: $hash->{helper}{key}  Line: " . __LINE__;
 
-        #do some weird checks, if value is right
-        my $length = length( $hash->{helper}{value} );
-        Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests length: $length  Line: " . __LINE__;
-        if ( $length != 18 && $length != 16)
-        {
-            #go crazy.. dont know... whatever
-            #maybe anywhen calculate value from key... xD
-            @{ $hash->{actionQueue} } = ();
-            InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
-            return;
-        }
+        $hash->{helper}{recv} = q{}; ## empty receiveBuffer
 
-        $hash->{helper}{recv} = q{}; ## empty string
-
-        Log3 $name, 5, "pylontech ($name) - pylontech_sendRequests unpack: $hash->{helper}{value}  Line: " . __LINE__;
-        my $send = "7E" . unpack( "H*", $hash->{helper}{value} ) . "0D";
-        Log3 $name, 3, "pylontech ($name) - pylontech_sendRequests sendString: $send  Line: " . __LINE__;
-
-        DevIo_SimpleWrite( $hash, $send, 1 );
-
-        # start an internal Timer as Watchdog if no answer is received
-        InternalTimer( gettimeofday() + 10, 'pylontech_sendRequests', $hash );
+        DevIo_SimpleWrite( $hash, $hash->{helper}{value}, 1 );
+	# readingsSingleUpdate($hash, "1_status", "sending $hash->{helper}{key}",1); 
+        # start an internal Timer as Watchdog and proceed to next command if no answer is received
+	InternalTimer( gettimeofday() + 10, 'pylontech_sendRequests', $hash );
     } else
     {
         #leere die ActionQueue
         @{ $hash->{actionQueue} } = ();
 
         Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests aqlength: $aq_length  Line: " . __LINE__;
-        #rufe prepareRequests auf
-        pylontech_prepareRequests($hash);
-        InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+        #fülle die Queue
+	pylontech_fillQueue($hash);
+        InternalTimer(gettimeofday()+ 0.01, 'pylontech_sendRequests',$hash);
     }
     return;
+##}}}
 }
 #####################################
 sub pylontech_Read
 {
 
+##{{{
     my ($hash) = @_;
     my $name = $hash->{NAME};
-    readingsSingleUpdate( $hash, "_status", "communication in progress", 1 );
+    readingsSingleUpdate( $hash, "1_status", "communication in progress", 1 );
     Log3( $name, 5, "pylontech currently reading _Line:" . __LINE__ );
 
     # read from serial device
@@ -360,7 +437,7 @@ sub pylontech_Read
     ## now we can modify the hex string ...
     if ( $hash->{helper}{recv} =~ m/~(.*)\r/xms )
     {
-        Log3( $name, 5, "pylontech hex: $1" );
+        Log3( $name, 3, "pylontech receive hex:\n$1" );
 
         ## decode data
         my %receive;
@@ -397,7 +474,7 @@ sub pylontech_Read
 
             readingsSingleUpdate( $hash, "_error", "$error", 1 );
             Log3( $name, 5, "pylontech Error: $error Line:" . __LINE__ );
-            readingsSingleUpdate( $hash, "_status", "communication failed. Proceeding", 1 );
+            readingsSingleUpdate( $hash, "1_status", "communication failed. Proceeding", 1 );
         } else
         {
 
@@ -416,31 +493,59 @@ sub pylontech_Read
     }
 
     return;
+##}}}
 }
 ##########################################################################################
 sub pylontech_analyze_answer
 {
+##{{{
 
     my ( $hash, $value ) = @_;
     my $name = $hash->{NAME};
     my $cmd  = $hash->{helper}{key};
 
+    ##readingsSingleUpdate($hash, "1_status", "receiving $value",1); 
     # remove Watchdog-Timer
     RemoveInternalTimer($hash);
     my $success = "failed";
-    Log3( $name, 3, "pylontech cmd: $cmd _Line:" . __LINE__ );
+    Log3( $name, 3, "pylontech analyzing cmd: $cmd _Line:" . __LINE__ );
     Log3( $name, 4, "pylontech analyzing anyway _Line:" . __LINE__ );
 
     if ( $value =~ m/NAK.*/xms )
     {
+##{{{
         Log3( $name, 4, "pylontech invalid Query, valid Answer. Aborting. _Line:" . __LINE__ );
-        InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+	#InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
         return;
+##}}}
     }
-    if ( $cmd =~ m/PACKSTATE(\d)/xms )
+    if ( $cmd =~ m/SW_VER.*/xms )
     {
+##{{{
+        Log3( $name, 4, "pylontech cmd: analyzing VERSION _Line:" . __LINE__ );
+        readingsBeginUpdate($hash);
+        readingsBulkUpdate( $hash, "SW_Version",$value,1);
+        readingsEndUpdate( $hash, 1 );
+        Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
+        $success = "success";
+##}}}
+    }
+    if ( $cmd =~ m/VERSION.*/xms )
+    {
+##{{{
+        Log3( $name, 4, "pylontech cmd: analyzing VERSION _Line:" . __LINE__ );
+        readingsBeginUpdate($hash);
+        readingsBulkUpdate( $hash, "Version",$value,1);
+        readingsEndUpdate( $hash, 1 );
+        Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
+        $success = "success";
+##}}}
+    }
+    if ( $cmd =~ m/PACK(\d)/xms )
+    {
+##{{{
 
-        Log3( $name, 4, "pylontech cmd: analyzing PACKSTATE _Line:" . __LINE__ );
+        Log3( $name, 4, "pylontech cmd: analyzing PACK _Line:" . __LINE__ );
         ## get Pack-Number
         Log3( $name, 4, "pylontech PackNumber = $1 _Line:" . __LINE__ );
 
@@ -475,8 +580,8 @@ sub pylontech_analyze_answer
             ##128 = charge enable
         }
 
-        Log3( $name, 4, "pylontech A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "pylontech B = $bits _Line:" . __LINE__ );
+        Log3( $name, 5, "pylontech A = $message _Line:" . __LINE__ );
+        Log3( $name, 5, "pylontech B = $bits _Line:" . __LINE__ );
         readingsBeginUpdate($hash);
         readingsBulkUpdate( $hash, "Pack_$1_recommChargeVoltageLimit",    $recommChargVoltageLimit,     1 );
         readingsBulkUpdate( $hash, "Pack_$1_recommDischargeVoltageLimit", $recommDischargeVoltageLimit, 1 );
@@ -486,8 +591,10 @@ sub pylontech_analyze_answer
         readingsEndUpdate( $hash, 1 );
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
+##}}}
     } elsif ( $cmd =~ m/CELL(\d)/xms )
     {
+##{{{
         Log3( $name, 4, "pylontech cmd: analyzing $cmd _Line:" . __LINE__ );
 
         # get Pack-Number
@@ -535,7 +642,7 @@ sub pylontech_analyze_answer
         readingsBulkUpdate( $hash, "Pack_$1_Spannung", hex( substr( $value, 92, 4 ) ) / 1000,     1 );
         readingsBulkUpdate( $hash, "Pack_$1_Ah_left",  hex( substr( $value, 96, 4 ) ) / 1000,     1 );
         readingsBulkUpdate( $hash, "Pack_$1_SoC",      hex( substr( $value, 96, 4 ) ) / 1000 * 2, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_unbekannt_hex", substr( $value, 100, 2 ), 1 );
+        readingsBulkUpdate( $hash, "Pack_$1_User_defined_hex", substr( $value, 100, 2 ), 1 );
         readingsBulkUpdate( $hash, "Pack_$1_Ah_total", hex( substr( $value, 102, 4 ) ) / 1000, 1 );
         readingsBulkUpdate( $hash, "Pack_$1_cycle",    hex( substr( $value, 106, 4 ) ),        1 );
 
@@ -545,8 +652,10 @@ sub pylontech_analyze_answer
 
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
+##}}}
     } elsif ( $cmd =~ m/WARN(\d)/xms )
     {
+##{{{
         Log3( $name, 4, "pylontech cmd: analysiere WARN _Line:" . __LINE__ );
 
         # get Pack-Number
@@ -589,7 +698,7 @@ sub pylontech_analyze_answer
         }
         if ( substr( $bits, 6, 1 ) == 1 )
         {
-            $message .= "iCell lower-limit-voltage";
+            $message .= "Cell lower-limit-voltage";
             ##32 = charge immediately
         }
         if ( substr( $bits, 5, 1 ) == 1 )
@@ -803,27 +912,20 @@ sub pylontech_analyze_answer
 
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
+##}}}
     } elsif ( $cmd eq "XXX" )
     {
+##{{{
         Log3( $name, 4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__ );
         readingsBeginUpdate($hash);
         readingsBulkUpdate( $hash, "XXX", $value, 1 );
         readingsEndUpdate( $hash, 1 );
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
-    } elsif ( $cmd eq "NOP" )
-    {
-        Log3( $name, 4, "pylontech cmd: analysiere $cmd _Line:" . __LINE__ );
-        my $a = $value * 1;
-        Log3( $name, 4, "pylontech uebergeben: $a _Line:" . __LINE__ );
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "1_Number_of_Packs", $a, 1 );
-        readingsEndUpdate( $hash, 1 );
-        $hash->{helper}{NOP} = $a;
-        Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
-        $success = "success";
+##}}}
     } else
     {
+##{{{
         Log3( $name, 1, "pylontech cmd " . $cmd . " not implemented yet, putting value in _devel<nr>, Line: " . __LINE__ );
         readingsBeginUpdate($hash);
         Log3( $name, 1, "pylontech cmd  $cmd unknown" );
@@ -836,6 +938,7 @@ sub pylontech_analyze_answer
         readingsEndUpdate( $hash, 1 );
         Log3( $name, 4, "pylontech $cmd successful _Line:" . __LINE__ );
         $success = "success";
+##}}}
     }
 
     Log3( $name, 4, "pylontech analyze ready. success: $success _Line:" . __LINE__ );
@@ -844,18 +947,21 @@ sub pylontech_analyze_answer
         $hash->{CONNECTION}    = "established";
         $hash->{helper}{key}   = "";
         $hash->{helper}{value} = "";
-        Log3( $name, 3, "pylontech ($name) - Transmission finished " . __LINE__ );
+        Log3( $name, 3, "pylontech ($name) - Transmission finished _Line:" . __LINE__ );
     }
-    InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
+    Log3( $name, 3, "pylontech ($name) - calling sendRequests _Line:" . __LINE__ );
+    InternalTimer( gettimeofday() + 0.1, 'pylontech_sendRequests', $hash );
     return;
+##}}}
 }
 ##########################################
 sub pylontech_calcTotal
 {
+##{{{
 
     my ($hash) = @_;
     my $name = $hash->{NAME};
-    my $numberOfPacks  = ReadingsNum( $name, "1_Number_of_Packs", 8 );
+    my $numberOfPacks  = $hash->{helper}{nop} // 1;
     my $Ah_left        = 0;
     my $Ah_total       = 0;
     my $U_total        = 0;
@@ -864,6 +970,7 @@ sub pylontech_calcTotal
     my $T_total        = 0;
     my $soc_total      = 0;
     my $kWh_left_total = 0;
+    my $chg_time_left  = 0;
     readingsBeginUpdate($hash);
 
     for ( my $i = 1; $i < $numberOfPacks + 1; $i++ )
@@ -893,6 +1000,12 @@ sub pylontech_calcTotal
         $soc_total = int( 10 * $var1 ) / 10;
         Log3( $name, 5, "pylontech ($name) - soc total rounded: $soc_total " . __LINE__ );
     }
+    ## verbleibende Ladezeit mit aktueller Leistung in Sekunden
+    if ($P_total > 0){
+    $chg_time_left =int((2.4 * $numberOfPacks - $kWh_left_total) * 1000 / $P_total * 3600);
+    } else {
+    $chg_time_left = "N/A";
+    }
     readingsBulkUpdate( $hash, "1_kWh_BMS_left_total", $kWh_left_total );
     readingsBulkUpdate( $hash, "1_Ah_BMS_total",       $Ah_total );
     readingsBulkUpdate( $hash, "1_Ah_BMS_left",        $Ah_left );
@@ -901,22 +1014,30 @@ sub pylontech_calcTotal
     readingsBulkUpdate( $hash, "1_Spannung_total",     $U_total );
     readingsBulkUpdate( $hash, "1_Strom_total",        $I_total );
     readingsBulkUpdate( $hash, "1_Power_total",        $P_total );
+    readingsBulkUpdate( $hash, "1_chargetime_left",    $chg_time_left );
     readingsEndUpdate( $hash, 1 );
     return;
+##}}}
 }
-sub pylontech_addChecksum{
-
+sub pylontech_addChecksum
+{
+##{{{
 ##	my $v = "20014692E00208";
+	my $hash = shift;
 	my $order = shift;
+    	my $name = $hash->{NAME};
+        Log3( $name, 4, "pylontech ($name) - checksum order: $order  _Line: " . __LINE__ );
 	my @r = split(//,$order);
 	my $var;
 	foreach (@r) {
 		    $var += hex(unpack("H*",$_));
 	    }
 	my $output = $var ^ eval "0b1111111111111111";
+        Log3( $name, 5, "pylontech ($name) - checksum output: $output  _Line: " . __LINE__ );
 	my $checksum = sprintf("%X", $output+1);
+        Log3( $name, 5, "pylontech ($name) - checksum checksum: $checksum  _Line: " . __LINE__ );
 	return $order . $checksum;
-	   
+##}}}
 }
 1;
 

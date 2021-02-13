@@ -87,41 +87,32 @@ sub fsp_devel_Ready($)
 sub fsp_devel_Notify($$){
 my ($hash,$dev) = @_;
 my $name = $hash->{NAME};
-Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify  Line: " . __LINE__;    
+Log3($name, 4, "fsp_devel ($name) - fsp_devel_Notify  Line: " . __LINE__);    
 return if (IsDisabled($name));
 my $devname = $dev->{NAME};
 my $devtype = $dev->{TYPE};
 my $events = deviceEvents($dev,1);
-Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify - not disabled  Line: " . __LINE__;    
+Log3($name, 4, "fsp_devel ($name) - fsp_devel_Notify - not disabled  Line: " . __LINE__);    
 return if (!$events);
 if( grep /^ATTR.$name.mode/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
-        Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__; 
+        Log3($name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__); 
         $hash->{MODE} = AttrVal($name,"mode","automatic");
 }
 if( grep /^ATTR.$name.interval/,@{$events} or grep /^INITIALIZED$/,@{$events}) {
-        Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__; 
+        Log3($name, 4, "fsp_devel ($name) - fsp_devel_Notify change mode to AttrVal($name,mode) _Line: " . __LINE__); 
         $hash->{INTERVAL} = AttrVal($name,"interval",2);
 	RemoveInternalTimer($hash); # Stoppe Timer
 	InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
 }
 
 
-Log3 $name, 4, "fsp_devel ($name) - fsp_devel_Notify got events @{$events} Line: " . __LINE__;  
+Log3($name, 4, "fsp_devel ($name) - fsp_devel_Notify got events @{$events} Line: " . __LINE__);  
 fsp_devel_prepareRequests("prepare:$name") if( grep /^INITIALIZED$/,@{$events}
                                 or grep /^CONNECTED$/,@{$events}
                                 or grep /^DELETEATTR.$name.disable$/,@{$events}
                                 or grep /^DELETEATTR.$name.interval$/,@{$events}
                                 or (grep /^DEFINED.$name$/,@{$events} and $init_done) );
-
-
-
-
-
-
-
-
 return;
-
 }
 #####################################
 sub fsp_devel_Undef($$)
@@ -134,7 +125,7 @@ sub fsp_devel_Undef($$)
 sub fsp_devel_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of cmd timer:noArg S005LON:0,1 S012FPADJ S005ED:feed_power_enable,feed_power_disable S013FPRADJ S013FPSADJ S013FPTADJ"; 
+	my $usage = "Unknown argument $a[1], choose one of cmd timer:noArg AC_out:on,off machine_model:Hybrid_VDE4105,Grid_VDE4105 S012FPADJ S005ED:feed_power_enable,feed_power_disable S013FPRADJ S013FPSADJ S013FPTADJ"; 
 	my $ret;
 	my $minInterval = 30;
 	Log3($name,5, "fsp_devel argument $a[1] _Line: " . __LINE__);
@@ -174,8 +165,28 @@ sub fsp_devel_Set($@){
 
 
 
-	if ($setcmd eq "S005LON"){ #en/dis-able power supply to load
+	if ($setcmd eq "example"){ #en/dis-able power supply to load
 		my $push = "5e533030354c4f4e". $setvalue_hex ."0d";
+		push(@{$hash->{helper}{addCMD}}, $push );
+		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
+	}elsif ($setcmd eq "AC_out"){ #en/dis-able power supply to load
+		my $val;
+		if($a[2] eq "on"){
+			my $val = "30";
+		} elsif ($a[2] eq "off"){
+			$val = "30";
+		}
+		my $push = "5e533030354c4f4e". $val ."0d";
+		push(@{$hash->{helper}{addCMD}}, $push );
+		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
+	}elsif ($setcmd eq "machine_model"){ #en/dis-able power supply to load
+		my $val;
+		if($a[2] eq "Hybrid_VDE4105"){
+			my $val = "303538";
+		} elsif ($a[2] eq "Grid_VDE4105"){
+			$val = "313038";
+		}
+		my $push = "5e53303036444d". $val ."0d";
 		push(@{$hash->{helper}{addCMD}}, $push );
 		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
 	}elsif ($setcmd eq "S012FPADJ"){ # Feeding Grid power Calibrationi
@@ -254,8 +265,7 @@ sub fsp_devel_Set($@){
 		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
 		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
-	}
-	if ($setcmd eq "S013FPSADJ"){ #
+	}elsif ($setcmd eq "S013FPSADJ"){ #
 		#S012FPSADJm,nnnn
 		#m = direktion => +=1; -=0
 		#calibration power, range 0-1000
@@ -642,26 +652,37 @@ my $debu3 = length($hash->{helper}{received_ascii});
 	Log3($name,5, "fsp_devel check_sum length(response)-5-len (sollte 0 sein): $debu _Line:" . __LINE__);
  
   my $digest = crc($resp1, 16, 0x0000, 0x0000, 0 , 0x1021, 0, 1);
- my $debu2 = unpack ('n', $crc ) ; 
+ my $digest_before = $digest;
+  my $writelog = 0;
+  my $debu2 = unpack ('n', $crc ) ; 
  	my $crc1 = $digest >> 8; 
-	my $crc2 = $digest & "0b11111111";
+	my $crc2 = $digest & 0b11111111;
  if ($crc1 eq 0x28 || $crc1 eq 0x0d || $crc1 eq 0x0a){
-	Log3($name,0, "fsp_devel check_sum CRC mismatch before $crc1 _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC mismatch1 before $crc1 _Line:" . __LINE__);
 	$crc1=$crc1+0x01;
 	$crc1 = $crc1 << 8;
-	Log3($name,0, "fsp_devel check_sum CRC mismatch after $crc1 _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC mismatch1 after $crc1 _Line:" . __LINE__);
 	$digest =  $crc1 + $crc2; 
+	Log3($name,1, "fsp_devel check_sum CRC digest before $digest_before _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC digest1 after $digest _Line:" . __LINE__);
+	$writelog = 1;
 	}
  if ($crc2 eq 0x28 || $crc2 eq 0x0d || $crc2 eq 0x0a){
-	Log3($name,0, "fsp_devel check_sum CRC mismatch before $crc2 _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC mismatch2 before $crc2 _Line:" . __LINE__);
 	$crc2=$crc2+0x01;
-	Log3($name,0, "fsp_devel check_sum CRC mismatch after $crc2 _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC mismatch2 after $crc2 _Line:" . __LINE__);
 	$digest =  $crc1 + $crc2; 
+	Log3($name,1, "fsp_devel check_sum CRC digest before $digest_before _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum CRC digest2 after $digest _Line:" . __LINE__);
+	$writelog = 1;
  }
- return (0) unless $digest == unpack ('n', $crc  )  ;
+if($writelog){
+	Log3($name,1, "fsp_devel check_sum check: $digest == $debu2 _Line:" . __LINE__);
+}
+return (0) unless $digest == unpack ('n', $crc  )  ;
 	Log3($name,5, "fsp_devel check_sum check: $digest == $debu2 _Line:" . __LINE__);
-	my $order = $label . $len;
-  return ($order, $payload); 
+ my $order = $label . $len;
+ return ($order, $payload); 
 	  #  sprintf("%04x", unpack ('n', $crc,  )), 
 	  #  sprintf("%04x", $digest) 
 }
@@ -855,6 +876,40 @@ sub fsp_devel_analyzeAnswer
 
 =pod
 =begin html
+
+
+<ul>
+<a name="machine_model"></a>
+<li><b>machine_model</b>
+<ul>
+<code>
+set &lt;device&gt; machine_model
+</code><br>
+Setzt den aktuellen Modus. 58= 4105 Hybrid; 108=4105 Grid<br>
+Befehl: <i>P003DM</i>
+Befehl: <i>S006DMnnn</i>
+</ul>
+</li>
+</ul>
+<br>
+
+
+<ul>
+<a name="AC_out"></a>
+<li><b>AC_out</b>
+<ul>
+<code>
+set &lt;device&gt; AC_out [on|off]
+</code><br>
+Schaltet den Insel-Anschluss (3x3,33kW) ein. Standbyverbrauch etwa 200W<br>
+Befehl: <i>S005LON</i>
+</ul>
+</li>
+</ul>
+<br>
+
+
+
 
 =end html
 

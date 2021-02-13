@@ -271,12 +271,15 @@ sub fspSCC_Get($@){
 #my 	$crc = crc($input,$width,$init,$xorout,$refout,$poly,$refin,$cont);
 
 # n   	my $finale = crc("QPI",16,0x0000,i);
-#	Log3($name,1, "fspSCC get $crc _Line: " . __LINE__);
+#	Log3($name,1, "fspSCC get $crc _Line: " . __LINE__:_:
 return;
 
 
 }
 
+
+test
+	
 ############################################
 sub fspSCC_TimerGetData($){
 my $hash = shift;
@@ -305,7 +308,7 @@ if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) == 0 ){
 		readingsSingleUpdate($hash,'state','disabled',1);
 	}
 	InternalTimer( gettimeofday()+$hash->{INTERVAL}, 'fspSCC_TimerGetData', $hash);
-	Log3 $name, 4, "fspSCC ($name) _TimerGetData - call InternalTimer fspSCC_TimerGetData Line: " . __LINE__;	
+	Log3 $name, 4, "fspSCC ($name) _TimerGetData - call InternalTimer fspSCC_TimerGetData delay: $hash->{INTERVAL}  _Line: " . __LINE__;	
 }else {
 	Log3 $name, 4, "fspSCC ($name) _TimerGetData - call fspSCC_sendRequests Line: " . __LINE__;	
 	fspSCC_sendRequests("next:$name");
@@ -380,7 +383,7 @@ sub fspSCC_Read($$)
 	#
 	
         my $buf =  DevIo_SimpleRead($hash);
-	Log3($name,5, "fspSCC buffer: $buf");
+	Log3($name,5, "fspSCC buffer: $buf" . __LINE__);
 	if (!defined($buf)  || $buf eq "")
 	{ 
 		
@@ -393,10 +396,10 @@ sub fspSCC_Read($$)
 	
 	Log3($name,5, "fspSCC helper: $hash->{helper}{recv}"); 
 	my $hex_before = unpack "H*", $hash->{helper}{recv};
-	Log3($name,5, "fspSCC hex_before: $hex_before");
+	Log3($name,5, "fspSCC hex_before: $hex_before" . __LINE__);
 	## now we can modify the hex string ... 
 	if($hex_before =~ /28(.*)....0d/){
-	Log3($name,5, "fspSCC hex without start and CRC: $1");
+	Log3($name,5, "fspSCC hex without start and CRC: $1" . __LINE__);
 
 		my @h1 = ($1 =~ /(..)/g);
 		my @ascii_ary = map { pack ("H2", $_) } @h1;
@@ -404,9 +407,9 @@ sub fspSCC_Read($$)
 	foreach my $part (@ascii_ary){
 		$asciistring .= $part;
 	}
-		Log3($name,5, "fspSCC ascii: $asciistring");
+		Log3($name,5, "fspSCC ascii: $asciistring" . __LINE__);
 		my @splits = split(" ",$asciistring);
-		Log3($name,5, "fspSCC splits: @splits");
+		Log3($name,5, "fspSCC splits: @splits" . __LINE__);
 		fspSCC_analyze_answer($hash, @splits);
 	if(defined($hash->{actionQueue}) and scalar(@{$hash->{actionQueue}}) != 0 ){
 		Log3 $name, 4, "fspSCC ($name) - fspSCC_ReadFn Noch nicht alle Abfragen gesendet, rufe sendRequests wieder auf  Line: " . __LINE__;	
@@ -675,6 +678,71 @@ if($success eq "success"){
 
 =pod
 =begin html
+
+This modules requests QPIGS and QPIWS from a SolarChargeController.
+
+<ul>
+<a name="reopen"></a>
+<li><b>reopen</b>
+<ul>
+<code>
+set &lt;device&gt; reopen
+</code><br>
+reopens the physical connection.
+If open, close
+try to open
+If not successful, try again
+update_status
+</ul>
+</li>
+</ul>
+<br>
+<!-- ####### -->
+
+<ul>
+<a name="reset"></a>
+<li><b>reset</b>
+<ul>
+<code>
+set &lt;device&gt; reset
+</code><br>
+empty helper/value, helper/key, helper/recv and actionQueue.
+start Timergetdata();
+</ul>
+</li>
+</ul>
+<br>
+
+<ul>
+<a name="interval"></a>
+<li><b>interval</b>
+<ul>
+<code>
+attr &lt;device&gt; interval <seconds>
+</code><br>
+defines the query interval of the Module
+Default Value is 60s
+</ul>
+</li>
+</ul>
+<br>
+
+
+<ul>
+<a name="disable"></a>
+<li><b>disable</b>
+<ul>
+<code>
+set &lt;device&gt; disable [0|1]
+</code><br>
+Schaltet den Insel-Anschluss (3x3,33kW) ein. Standbyverbrauch etwa 200W<br>
+Befehl: <i>S005LON</i>
+</ul>
+</li>
+</ul>
+<br>
+
+
 
 =end html
 
