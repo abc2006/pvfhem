@@ -372,7 +372,7 @@ sub pylontech_sendRequests
     my $name        = $hash->{NAME};
     my $aq_length   = @{ $hash->{actionQueue} };
     my $modo_length = $aq_length % 2;
-    my $interval    = AttrVal($name,"interval",10);
+    my $interval    = AttrVal($name,"interval",0);
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests interval: $interval  Line: " . __LINE__;
     if(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
     	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
