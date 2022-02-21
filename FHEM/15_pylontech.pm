@@ -321,7 +321,7 @@ sub pylontech_fillQueue
     my $hash = shift // return 'Not enough Arguments';
     my $name = $hash->{NAME};
     my $nop = $hash->{helper}{nop} // '1';
-    Log3( $name, 1, "pylontech attr $hash->{helper}{nop} _Line: " . __LINE__ );
+    Log3( $name, 4, "pylontech attr $hash->{helper}{nop} _Line: " . __LINE__ );
 	foreach my $key (keys %requests)
 	{
 		#create order
@@ -617,7 +617,7 @@ sub pylontech_analyze_answer
         readingsBulkUpdate( $hash, "Pack_$1_Zelle13",       hex( substr( $value, 54, 4 ) ) / 1000, 1 );
         readingsBulkUpdate( $hash, "Pack_$1_Zelle14",       hex( substr( $value, 58, 4 ) ) / 1000, 1 );
         readingsBulkUpdate( $hash, "Pack_$1_Zelle15",       hex( substr( $value, 62, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Temperaturfühler", substr( $value, 66, 2 ), 1 );
+        readingsBulkUpdate( $hash, "Pack_$1_Temperaturfuehler", substr( $value, 66, 2 ), 1 );
         my $sensor = 0;
 
         # loop through the temperatursensors. The Values are available at position 68,72,76,80,84 in the Data-String
