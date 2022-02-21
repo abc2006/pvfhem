@@ -1,5 +1,5 @@
 ##############################################
-# $Id: 15_pylontech.pm 2016-01-14 09:25:24Z stephanaugustin $
+# $Id: 15_pylontech.pm 2022-02-14 09:25:24Z stephanaugustin $
 # This Module is reading Values from pylontech US2000B and offers them as readings.
 # test
 package main;
@@ -90,7 +90,7 @@ sub pylontech_Initialize
     $hash->{ReadFn}   = "pylontech_Read";
     $hash->{ReadyFn}  = "pylontech_Ready";
     $hash->{AttrFn}   = "pylontech_Attr";
-    $hash->{AttrList} = "unknown_as_reading:yes,no protocol:RS232,RS485 nop:1,2,3,4,5,6,7,8 " . $readingFnAttributes;
+    $hash->{AttrList} = "unknown_as_reading:yes,no protocol:RS232,RS485 nop:1,2,3,4,5,6,7,8 interval " . $readingFnAttributes;
     
     $hash->{helper}{value}           = q{};
     $hash->{helper}{key}             = q{};
@@ -130,6 +130,7 @@ sub pylontech_Define
     }
     Log3( $name, 4, "pylontech DevIO_OpenDev_Define" . __LINE__ );
     readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
+    readingsSingleUpdate($hash, "1_version", "1",1); 
     
     InternalTimer( gettimeofday() + 10, 'pylontech_sendRequests', $hash );
     return DevIo_OpenDev( $hash, 0, "pylontech_DoInit" );
@@ -371,6 +372,8 @@ sub pylontech_sendRequests
     my $name        = $hash->{NAME};
     my $aq_length   = @{ $hash->{actionQueue} };
     my $modo_length = $aq_length % 2;
+    my $interval    = AttrVal($name,"interval",10);
+    Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests interval: $interval  Line: " . __LINE__;
     if(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
     	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
     	Log3 $name, 0, "pylontech ($name) - pylontech_sendRequests Module disabled due to missing Attributes protocol and/or nop _Line: " . __LINE__;
@@ -392,7 +395,7 @@ sub pylontech_sendRequests
         DevIo_SimpleWrite( $hash, $hash->{helper}{value}, 1 );
 	# readingsSingleUpdate($hash, "1_status", "sending $hash->{helper}{key}",1); 
         # start an internal Timer as Watchdog and proceed to next command if no answer is received
-	InternalTimer( gettimeofday() + 10, 'pylontech_sendRequests', $hash );
+	InternalTimer( gettimeofday() + 10 + $interval, 'pylontech_sendRequests', $hash );
     } else
     {
         #leere die ActionQueue
@@ -401,7 +404,7 @@ sub pylontech_sendRequests
         Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests aqlength: $aq_length  Line: " . __LINE__;
         #fülle die Queue
 	pylontech_fillQueue($hash);
-        InternalTimer(gettimeofday()+ 0.01, 'pylontech_sendRequests',$hash);
+        InternalTimer(gettimeofday()+ 0.01+ $interval, 'pylontech_sendRequests',$hash);
     }
     return;
 ##}}}
