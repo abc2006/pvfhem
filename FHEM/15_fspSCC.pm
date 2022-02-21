@@ -278,7 +278,7 @@ return;
 }
 
 
-test
+
 	
 ############################################
 sub fspSCC_TimerGetData($){

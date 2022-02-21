@@ -15,7 +15,8 @@ my %requests_02 = (
 my %requests_30 = (
 	'P003WS' => "5e5030303357530d", # Query Warning Status ##30 sek
 	'P003GS' => "5e5030303347530d", # Query General Status ##2 sek
-	'P004MOD' => "5e503030344d4f440d" # Query Working Mode ## 30 sek
+	'P004MOD' => "5e503030344d4f440d", # Query Working Mode ## 30 sek
+	'P003ET' => "5e5030303345540d" # query total_energy_generated
 );
 
 ###############################
@@ -54,6 +55,7 @@ if(@a < 3 || @a > 5){
   $hash->{DeviceName} = $device;
   $hash->{NOTIFYDEV} 	= "global";
   $hash->{actionQueue} 	= [];
+  $hash->{helper}{addCMD} = [];
   DevIo_CloseDev($hash) if(DevIo_IsOpen($hash));  
   my $ret = DevIo_OpenDev($hash, 0, "fsp_devel_DoInit" );
   Log3($name, 1, "fsp_devel DevIO_OpenDev_Define" . __LINE__); 
@@ -125,7 +127,9 @@ sub fsp_devel_Undef($$)
 sub fsp_devel_Set($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of cmd timer:noArg AC_out:on,off machine_model:Hybrid_VDE4105,Grid_VDE4105 S012FPADJ S005ED:feed_power_enable,feed_power_disable S013FPRADJ S013FPSADJ S013FPTADJ"; 
+	my $energy_distribution = "charge_battery_enable,AC_charge_battery_enable,feed_to_utility_enable,discharge_to_loads_pv_available_enable,discharge_to_loads_pv_UNavailable_enable,discharge_to_grid_pv_available_enable,discharge_to_loads_pv_UNavailable_enable,Q_U_derating_enable,charge_battery_disable,AC_charge_battery_disable,feed_to_utility_disable,discharge_to_loads_pv_available_disable,discharge_to_loads_pv_UNavailable_disable,discharge_to_grid_pv_available_disable,discharge_to_loads_pv_UNavailable_disable,Q_U_derating_disable";
+
+	my $usage = "Unknown argument $a[1], choose one of scan cmd timer:noArg AC_out:on,off machine_model:Hybrid_VDE4105,Grid_VDE4105 S012FPADJ energy_distribution:$energy_distribution S013FPRADJ S013FPSADJ S013FPTADJ"; 
 	my $ret;
 	my $minInterval = 30;
 	Log3($name,5, "fsp_devel argument $a[1] _Line: " . __LINE__);
@@ -139,9 +143,9 @@ sub fsp_devel_Set($@){
 	Log3($name,5, "fsp_devel argument cmd _Line: " . __LINE__);
 		if($hash->{MODE} eq "automatic"){
 			Log3($name,5, "fsp_devel cmd in automatic mode" . __LINE__);
-			RemoveInternalTimer($hash); # Stoppe Timer
+			#RemoveInternalTimer($hash); # Stoppe Timer
 			push(@{$hash->{helper}{addCMD}}, $a[2] );
-			InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
+			#InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
 		} else{
 			Log3($name,5, "fsp_devel cmd in manual mode" . __LINE__);
 			push(@{$hash->{helper}{addCMD}}, $a[2] );
@@ -150,6 +154,19 @@ sub fsp_devel_Set($@){
 		readingsSingleUpdate($hash,"1_lastcmd",$a[2],1);
 	return;	
 	}
+
+	if($a[1] eq "scan"){
+		foreach my $i (0..9) {
+			foreach my $j (0..9){
+				foreach my $k (0..9){
+					my $push = "5e50303136454832303231303531373".$i."3".$j."3".$k."0d";
+					push(@{$hash->{helper}{addCMD}}, $push );
+					Log3($name,5, "fsp_devel_set analyze : $i $j $k _Line: " . __LINE__);
+					Log3($name,5, "fsp_devel_set scan: $push _Line: " . __LINE__);
+				}
+			}
+		}
+	}	
   	if ($a[1] eq "timer"){
 	Log3($name,5, "fsp_devel argument timer" . __LINE__);
 	InternalTimer(gettimeofday()+$hash->{INTERVAL},'fsp_devel_prepareRequests',"prepare:$name");
@@ -224,9 +241,37 @@ sub fsp_devel_Set($@){
 		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
 		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
-	}elsif ($setcmd eq "S005ED"){ #
-		my $value = $a[2] eq "feed_power_enable" ? "31" : "30";
-		my $push = "5e53303035454443" . $value . "0d";
+	}elsif ($setcmd eq "energy_distribution"){ # S005ED
+		my $value = $a[2];
+	        my $m;
+	        my $n;
+			if($value =~ /enable$/){
+				$n = "31";# ascii 1
+			}elsif($value =~ /disable$/){
+				$n = "30";# ascii 0
+			}
+			if($value =~ /^charge_battery/){
+				$m = "41";## ascii A
+			}elsif($value =~ /^AC_charge_battery/){
+				$m = "42";## ascii B
+			}elsif($value =~ /^feed_to_utility/){
+				$m = "43";## ascii C
+			}elsif($value =~ /^discharge_to_loads_pv_available/){
+				$m = "44";## ascii D
+			}elsif($value =~ /^discharge_to_loads_pv_UNavailable/){
+				$m = "45";## ascii E
+			}elsif($value =~ /^discharge_to_grid_pv_available/){
+				$m = "46";## ascii F
+			}elsif($value =~ /^discharge_to_loads_pv_UNavailable/){
+				$m = "47";## ascii G 
+			}elsif($value =~ /^Q_U_derating/){
+				$m = "48";## ascii H
+			}
+			#
+			#
+			#
+			#
+		my $push = "5e533030354544" . $m . $n . "0d";
 		push(@{$hash->{helper}{addCMD}}, $push );
 		Log3($name,5, "fsp_devel_set push: $push _Line: " . __LINE__);
 		readingsSingleUpdate($hash,"1_lastcmd",$push,1);
@@ -336,7 +381,7 @@ sub fsp_devel_Set($@){
 		Log3($name,5, "fsp_devel_set push: $sendstring _Line: " . __LINE__);
 		## und danach direkt abfragen, wie die aktuellen Werte sind
 		push(@{$hash->{helper}{addCMD}}, "5e50303036465041444a0d");
-	}elsif ($setcmd eq ""){ #
+	}elsif ($setcmd eq "xxxxx"){ #
 		push(@{$hash->{helper}{addCMD}}, "");
 	}
 	if($hash->{MODE} eq "automatic"){
@@ -352,13 +397,13 @@ sub fsp_devel_Set($@){
 sub fsp_devel_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of P003PI:noArg P003ID:noArg P004VFW:noArg P005VFW2:noArg P003MD:noArg P005PIRI:noArg P005FLAG:noArg P002T:noArg P003ET:noArg P004GOV:noArg P004GOF:noArg P005OPMP:noArg P005GPMP:noArg P006MPPTV:noArg P004LST:noArg P003SV:noArg P003DI:noArg P005BATS:noArg P003DM:noArg P004MAR:noArg P004CFS:noArg P005HECS:noArg P006GLTHV:noArg P004FET:noArg P003FT:noArg P005ACCT:noArg P005ACLT:noArg P006FPADJ:noArg P006FPPF:noArg P005AAPF:noArg P007EMINFO:noArg";
+	my $usage = "Unknown argument $a[1], choose one of machine_model:noArg energy_distribution:noArg P003PI:noArg P003ID:noArg P004VFW:noArg P005VFW2:noArg P003MD:noArg P005PIRI:noArg P005FLAG:noArg P002T:noArg P003ET:noArg P004GOV:noArg P004GOF:noArg P005OPMP:noArg P005GPMP:noArg P006MPPTV:noArg P004LST:noArg P003SV:noArg P003DI:noArg P005BATS:noArg P003DM:noArg P004MAR:noArg P004CFS:noArg P005HECS:noArg P006GLTHV:noArg P004FET:noArg P003FT:noArg P005ACCT:noArg P005ACLT:noArg P006FPADJ:noArg P006FPPF:noArg P005AAPF:noArg P007EMINFO:noArg";
 	Log3($name,5, "fsp_devel argument $a[1]_Line: " . __LINE__);
   	if ($a[1] eq "?"){
 	Log3($name,5, "fsp_devel argument get fragezeichen _Line: " . __LINE__);
 	return $usage;
 	}
-
+	my $cmd; 
 	my $getcmd = $a[1];
 	if ($getcmd eq "P003PI"){ # Query Protocol ID
 		push(@{$hash->{helper}{addCMD}}, "5e5030303350490d");
@@ -374,6 +419,10 @@ sub fsp_devel_Get($@){
 
 	if ($getcmd eq "P005VFW2"){ #Query secondary CPU Version
 		push(@{$hash->{helper}{addCMD}}, "5e50303035564657320d");
+	}
+	
+	if ($getcmd eq "P005VFWT"){ #Query secondary CPU Version
+		push(@{$hash->{helper}{addCMD}}, "5e50303035564657540d");
 	}
 	
 	if ($getcmd eq "P003MD"){ #Query Device Model
@@ -438,7 +487,7 @@ sub fsp_devel_Get($@){
 		push(@{$hash->{helper}{addCMD}}, "5e50303035424154530d");
 
 	}
-	if ($getcmd eq "P003DM"){ # Query Machine Model
+	if ($getcmd eq "machine_model"){ # Query Machine Model P003DM
 		push(@{$hash->{helper}{addCMD}}, "5e50303033444d0d");
 	}
 	if ($getcmd eq "P004MAR"){ # Query Maschine Adjustable range
@@ -451,8 +500,10 @@ sub fsp_devel_Get($@){
 		push(@{$hash->{helper}{addCMD}}, "");
 		# unwichtig ?!?
 	}
-	if ($getcmd eq "P005HECS"){ # Query Energy control Status
-		push(@{$hash->{helper}{addCMD}}, "5e50303035484543530d");
+	if ($getcmd eq "energy_distribution"){ # Query Energy control Status Energy Distribution P005HECS
+		#push(@{$hash->{helper}{addCMD}}, "5e50303035484543530d");
+		$hash->{helper}{mancmd} = "5e50303035484543530d";
+		Log3($name,3, "fsp_devel($name) get energy_distribution _Line: " . __LINE__);
 	}
 	if ($getcmd eq "P006GLTHV"){ # Query AC input long-lime highest average Power
 		push(@{$hash->{helper}{addCMD}}, "5e50303036474c5448560d");
@@ -488,14 +539,25 @@ sub fsp_devel_Get($@){
 		push(@{$hash->{helper}{addCMD}}, "5e50303035414150460d");
 		## kandidat für automatik? 
 	}
-	if($hash->{MODE} eq "automatic"){
-		Log3($name,3, "fsp_devel($name) getcmd in automatic mode" . __LINE__);
+
+	#Vielleicht kriegen wir hier ein Handling für die Befehle hin... 
+	
+		Log3($name,3, "fsp_devel($name) getcmd stopping service _Line:" . __LINE__);
 		RemoveInternalTimer("send:$name"); # Stoppe Timer
-		fsp_devel_sendRequests("send:$name");
-	} else{
-		Log3($name,3, "fsp_devel($name) getcmd in manual mode" . __LINE__);
-		fsp_devel_sendRequests("send:$name");
-	}
+		InternalTimer(gettimeofday()+5,'fsp_devel_sendManual',$hash);
+		InternalTimer(gettimeofday()+20,'fsp_devel_prepareRequests',"prepare:$name");
+
+}
+
+sub fsp_devel_sendManual(){
+
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	Log3($name,0, "fsp_devel($name) sending mancmd _Line:" . __LINE__);
+	$hash->{helper}{BUFFER} = "";
+	DevIo_SimpleWrite($hash,$hash->{helper}{mancmd},1);
+	$hash->{helper}{mancmd}="";
+return;
 }
 #######################################
 sub fsp_devel_prepareRequests{
@@ -526,6 +588,7 @@ sub fsp_devel_prepareRequests{
 	#rufe sendRequests auf
 	fsp_devel_sendRequests("send:$name");
 	}elsif($calltype eq 'watchdog'){
+	Log3($name,0, "fsp_devel prepareRequests WATCHDOG _Line:" . __LINE__);
 		
 	}	
 
@@ -540,16 +603,20 @@ sub fsp_devel_sendRequests{
 	my $hash = $defs{$name};
 	Log3($name,4, "fsp_devel sendRequests calltype $calltype _Line:" . __LINE__);
 	
-	# anzahl der Items bestimmen
-	my $len = @{$hash->{actionQueue}};
-	Log3($name,4, "fsp_devel addCMD length $len before adding _Line:" . __LINE__);
-	foreach(@{$hash->{helper}{addCMD}}){
-		Log3($name,4, "fsp_devel addCMD adding item $_ _Line:" . __LINE__);
-		push(@{$hash->{actionQueue}}, shift(@{$hash->{helper}{addCMD}}));
+	
+	# Hier werden die manuell angeforderten Kommandos in die actionQueue eingereiht.
+	
+	my $len_addCMD = @{$hash->{helper}{addCMD}};
+	if( $len_addCMD > 0){
+		my $len = @{$hash->{actionQueue}};
+		Log3($name,4, "fsp_devel addCMD length $len before adding manual commands to actionQueue _Line:" . __LINE__);
+		foreach(@{$hash->{helper}{addCMD}}){
+			Log3($name,4, "fsp_devel addCMD adding item $_ _Line:" . __LINE__);
+			push(@{$hash->{actionQueue}}, shift(@{$hash->{helper}{addCMD}}));
+		}
+		$len = @{$hash->{actionQueue}};
+		Log3($name,4, "fsp_devel addCMD length $len after adding manual commands to actionQueue _Line:" . __LINE__);
 	}
-	$len = @{$hash->{actionQueue}};
-	Log3($name,4, "fsp_devel addCMD length $len after adding _Line:" . __LINE__);
-
 	my $length = @{$hash->{actionQueue}};
 	Log3($name,4, "fsp_devel actionQueue length $length _Line:" . __LINE__);
 	if($length > 0){
@@ -559,7 +626,7 @@ sub fsp_devel_sendRequests{
 		DevIo_SimpleWrite($hash,$req,1);
 		#tue gar nichts weiter, denn du wirst vom read aufgerufen
 		# doch, starte einen Watchdog-Timer, falls das Read nicht antwortet
-		InternalTimer(gettimeofday()+1,'fsp_devel_sendRequests',"watchdog:$name");
+		InternalTimer(gettimeofday()+5,'fsp_devel_sendRequests',"watchdog:$name");
 
 	} else {
 		#rufe prepareRequests auf
@@ -578,45 +645,86 @@ sub fsp_devel_Read($$)
 	Log3($name,5, "fsp_devel jetzt wird gelesen _Line:" . __LINE__);
         my $buf =  DevIo_SimpleRead($hash);
 	Log3($name,5, "fsp_devel buffer: $buf _Line: " . __LINE__);
-	if (!defined($buf)  || $buf eq "")
-	{ 
-		
-		Log3($name,1, "fsp_devel Fehler beim lesen _Line:" . __LINE__);
-		$hash->{CONNECTION} = "failed";
-		return "error" ;
-	}
-	$hash->{helper}{recv} .= $buf; 
-	Log3($name,5, "fsp_devel($name) helper_recv: $hash->{helper}{recv}  _Line: " . __LINE__ );
-
-#	readingsSingleUpdate($hash,"1_recv",$hash->{helper}{recv},1);
+	return "" if ( !defined($buf) );
+	$hash->{helper}{BUFFER} .= unpack('H*', $buf);
+	Log3 $name, 5, "X ($name) - current buffer content: ".$hash->{helper}{BUFFER};
+	
 	## check if received Data is complete
 	#
-	my $value = unpack "H*", $hash->{helper}{recv};
-	Log3($name,5, "fsp_devel devpack_hex: $value _Line: " . __LINE__ );
-	$hash->{helper}{received_hex} = $value;
-##	if ($value =~ /.*?5e(.*?)(....)0d/){
-	if ($value =~ /.*?(5e.*?0d)/){
-##	readingsSingleUpdate($hash,"1_checksum",$2,1);
-		##
-##	Log3($name,5, "fsp_devel checksum: $1 _Line: " . __LINE__ );
-	my $dev = pack ('H*',$1);
-	Log3($name,5, "fsp_devel($name) rcvMessage: $1 _Line: " . __LINE__ );
-	
-	my @h1 = ($1 =~ /(..)/g);
-	my @val2 = map { pack ("H2", $_) } @h1;	
-	my $out="";
-	foreach my $part (@val2){
-		$out .= $part;
-	}
-	$hash->{helper}{received_ascii} = $out;
-	Log3($name,4, "fsp_devel received_ascii: $out _Line: " . __LINE__ );
+	########Versuch ohne Hex: 
+	#
+	if($hash->{helper}{BUFFER} =~ /5e(44)(\d{6})((..)*)(....)0d/) {
+		
 
-#	readingsSingleUpdate($hash,"1_recv_ascii",$out,1);
+		Log3($name,4, "fsp_devel($name) test1: $1  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test2: $2  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test3: $3  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test4: $4  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test5: $5  _Line: " . __LINE__ );
+		#$hash->{helper}{recv_order} = $1;
+		#$hash->{helper}{recv_length} = $2;
+		#$hash->{helper}{recv_payload} = $3;
+		#$hash->{helper}{recv_chksum} = $5;
+		if ($3 =~ /5e/){
+			Log3($name,0, "fsp_devel($name) checksum missing: $hash->{helper}{BUFFER}  _Line: " . __LINE__ );
+			$hash->{helper}{BUFFER} = "";
+			return;
+		}
+		my $order = pack ('H*', $1);
+		my $length = pack ('H*', $2);
+		my $payload = pack ('H*', $3);
+		my $chksum = $5;
+		Log3($name,4, "fsp_devel($name) test1: $order  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test2: $length  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test3: $payload  _Line: " . __LINE__ );
+		Log3($name,4, "fsp_devel($name) test4: $chksum  _Line: " . __LINE__ );
+		my $verify_length = length($length)+length($payload);
+		my $len = 0;
+		Log3($name,4, "fsp_devel read verify_length $verify_length _Line:" . __LINE__);
+		Log3($name,4, "fsp_devel read rx_length $length _Line:" . __LINE__);
+		if ( $verify_length-$length ){
+			Log3($name,0, "fsp_devel read Tatsächliche Länge stimmt nicht mit der angegebenen Länge überein!  _Line:" . __LINE__);
+			$hash->{helper}{BUFFER} = "";
+ 			return (0);
+ 		}else {
+			Log3($name,5, "fsp_devel es ist alles so, wie es sein soll ...  _Line:" . __LINE__);
+		}
+		my $chk_input = "^" . $order . $length . $payload;
+			Log3($name,5, "fsp_devel to_chk_input: $chk_input  _Line:" . __LINE__);
+  		my $digest = crc($chk_input, 16, 0x0000, 0x0000, 0 , 0x1021, 0, 1);
+			Log3($name,3, "fsp_devel check_sum digest: $digest _Line:" . __LINE__);
+ 		
+		## handling of special values	
+		## actuially not of the checksum extracted of the message but the checksum calculated by myself:
+		my $digest_hex = sprintf("%04X",$digest);
+		
+		my ($crc1,$crc2) = $digest_hex =~ /(..)(..)/;
+		Log3($name,1, "fsp_devel($name) CRC: $digest_hex => $crc1 _ $crc2 _Line: " . __LINE__ );
+		#reserved numbers are 0x28, 0x0d and 0x0a.
+		
+ 		if (hex($crc1) == 0x28 || hex($crc1) == 0x0d || hex($crc1) == 0x0a){
+			Log3($name,3, "fsp_devel check_sum big add _Line:" . __LINE__);
+			$digest = $digest + 256; 
+		}
+ 		if (hex($crc2) == 0x28 || hex($crc2) == 0x0d || hex($crc2) == 0x0a){
+			Log3($name,3, "fsp_devel check_sum small add _Line:" . __LINE__);
+			$digest = $digest + 1; 
+		}
+		if($digest != hex($chksum) ){
+			Log3($name,0, "fsp_devel check_sum check failed: $digest == " . hex($chksum) . " _Line:" . __LINE__);
+			$hash->{helper}{BUFFER} = "";
+			return (0);
+		}
+		Log3($name,5, "fsp_devel check_sum check passed: $digest == " . hex($chksum) . " _Line:" . __LINE__);
+
+	$hash->{helper}{recv_order} = $order;
+	$hash->{helper}{recv_length} = $length;
+	$hash->{helper}{recv_payload} = $payload;
+	$hash->{helper}{BUFFER} = "";
+	Log3($name,5, "fsp_devel analyze_answer _Line:" . __LINE__);
 	fsp_devel_analyzeAnswer($hash);
-	$hash->{helper}{recv} = "";
 	## Watchdog-Timer entfernen, da Antwort empfangen und verarbeitet.
 	RemoveInternalTimer("watchdog:$name");
-	$value="";
 	fsp_devel_sendRequests("send:$name");
 	}
 	return;
@@ -624,23 +732,21 @@ sub fsp_devel_Read($$)
 ##########################################
 sub fsp_devel_check_sum{
 ## fsp_devel_check_sum($response);
+  	
   my $hash = shift @_;
   my $name = $hash->{NAME};
-my $debu3 = length($hash->{helper}{received_ascii});
-	Log3($name,5, "fsp_devel check_sum length(received_ascii): $debu3 _Line:" . __LINE__);
-  if(length($hash->{helper}{received_ascii})== 0){
-	Log3($name,5, "fsp_devel fehler:received ist empty or undefined: $hash->{helper}{received_ascii} _Line:" . __LINE__);
-	return (0);	  
-	}
+  #my $label;
+
+
   my $resp1 = substr ($hash->{helper}{received_ascii} , 0,-3  );
   my $crc = substr ($hash->{helper}{received_ascii} , -3,2  );
-	Log3($name,5, "fsp_devel check_sum response: $hash->{helper}{received_ascii} _Line:" . __LINE__);
-	Log3($name,5, "fsp_devel check_sum resp1: $resp1 _Line:" . __LINE__);
-	Log3($name,5, "fsp_devel check_sum crc: $crc _Line:" . __LINE__);
+	Log3($name,0, "fsp_devel check_sum response: $hash->{helper}{received_ascii} _Line:" . __LINE__);
+	Log3($name,0, "fsp_devel check_sum resp1: $resp1 _Line:" . __LINE__);
+	Log3($name,0, "fsp_devel check_sum crc: $crc _Line:" . __LINE__);
   # ^D0251496161801100008000000
   # \^(D)(\d{3})(.*)(\d{2})$
   ( my ($label, $len, $payload) = 
-	  ($resp1 =~ /\^(\w)(\d{3})(.*)$/) )  
+	  ($resp1 =~ /(\w)(\d{3})(.*)$/) )  
 	  or return (0) ;
 	Log3($name,5, "fsp_devel check_sum label: $label _Line:" . __LINE__);
 	Log3($name,5, "fsp_devel check_sum len: $len _Line:" . __LINE__);
@@ -648,16 +754,19 @@ my $debu3 = length($hash->{helper}{received_ascii});
 
   # compare real length with announced lengthi
   my $debu = length($hash->{helper}{received_ascii})-5-$len;
-  return (0) if ( length($hash->{helper}{received_ascii})-5-$len ) ;
-	Log3($name,5, "fsp_devel check_sum length(response)-5-len (sollte 0 sein): $debu _Line:" . __LINE__);
- 
+  if ( length($hash->{helper}{received_ascii})-5-$len ){
+	Log3($name,0, "fsp_devel check_sum length(response)-5-len (sollte 0 sein): $debu _Line:" . __LINE__);
+	Log3($name,0, "fsp_devel check_sum response: $hash->{helper}{received_ascii} _Line:" . __LINE__);
+	Log3($name,0, "fsp_devel check_sum len: $len _Line:" . __LINE__);
+ 	return (0);
+ }
   my $digest = crc($resp1, 16, 0x0000, 0x0000, 0 , 0x1021, 0, 1);
  my $digest_before = $digest;
   my $writelog = 0;
   my $debu2 = unpack ('n', $crc ) ; 
  	my $crc1 = $digest >> 8; 
 	my $crc2 = $digest & 0b11111111;
- if ($crc1 eq 0x28 || $crc1 eq 0x0d || $crc1 eq 0x0a){
+ if ($crc1 == 0x28 || $crc1 == 0x0d || $crc1 == 0x0a){
 	Log3($name,1, "fsp_devel check_sum CRC mismatch1 before $crc1 _Line:" . __LINE__);
 	$crc1=$crc1+0x01;
 	$crc1 = $crc1 << 8;
@@ -667,7 +776,7 @@ my $debu3 = length($hash->{helper}{received_ascii});
 	Log3($name,1, "fsp_devel check_sum CRC digest1 after $digest _Line:" . __LINE__);
 	$writelog = 1;
 	}
- if ($crc2 eq 0x28 || $crc2 eq 0x0d || $crc2 eq 0x0a){
+ if ($crc2 == 0x28 || $crc2 == 0x0d || $crc2 == 0x0a){
 	Log3($name,1, "fsp_devel check_sum CRC mismatch2 before $crc2 _Line:" . __LINE__);
 	$crc2=$crc2+0x01;
 	Log3($name,1, "fsp_devel check_sum CRC mismatch2 after $crc2 _Line:" . __LINE__);
@@ -677,10 +786,12 @@ my $debu3 = length($hash->{helper}{received_ascii});
 	$writelog = 1;
  }
 if($writelog){
-	Log3($name,1, "fsp_devel check_sum check: $digest == $debu2 _Line:" . __LINE__);
+	Log3($name,1, "fsp_devel check_sum check_writelog: $digest == $debu2 _Line:" . __LINE__);
 }
-return (0) unless $digest == unpack ('n', $crc  )  ;
-	Log3($name,5, "fsp_devel check_sum check: $digest == $debu2 _Line:" . __LINE__);
+	if($digest != unpack ('n', $crc  )){
+		Log3($name,5, "fsp_devel check_sum check: $digest == $debu2 _Line:" . __LINE__);
+		return (0);
+	}
  my $order = $label . $len;
  return ($order, $payload); 
 	  #  sprintf("%04x", unpack ('n', $crc,  )), 
@@ -692,7 +803,8 @@ sub fsp_devel_analyzeAnswer
 	my ($hash) = @_;
 	my $name = $hash->{NAME};
 	Log3($name,3, "fsp_devel analyzeAnswer jetzt wird ausgewertet _Line:" . __LINE__);
-	my ($order,$data) = fsp_devel_check_sum($hash);
+	my $order = $hash->{helper}{recv_order} . $hash->{helper}{recv_length};
+	my $data = $hash->{helper}{recv_payload};
 	Log3($name,5, "fsp_devel analyzeAnswer order: $order _Line:" . __LINE__);
 	Log3($name,5, "fsp_devel analyzeAnswer data: $data _Line:" . __LINE__);
 	if (!length($order) || !length($data)){
@@ -810,10 +922,18 @@ sub fsp_devel_analyzeAnswer
 
 	readingsSingleUpdate($hash,"working_mode",$state,1);
 	
+	}elsif($order eq "D011"){ ## Query the generated energy total
+	readingsSingleUpdate($hash,"total_energy_generated",int($splits[0]),1);
+	
+	Log3($name,4, "fsp_devel analyzeAnswer splits0: $splits[0] _Line:" . __LINE__);
 	}elsif($order eq "D008"){ ## Query the maximum output Power for feeding Grid P005GPMP, 5e5030303547504d500d
 	readingsSingleUpdate($hash,"max_feeding_power_pw",int($splits[0]),1);
 	
 	Log3($name,4, "fsp_devel analyzeAnswer splits0: $splits[0] _Line:" . __LINE__);
+	}elsif($order eq "D009"){ ## Query the generated energy of specified day
+	readingsSingleUpdate($hash,"energy_day_wh",int($splits[0]),1);
+	
+	Log3($name,4, "fsp_devel splits0: $splits[0] _Line:" . __LINE__);
 	
 	
 	}elsif($order eq "D110"){ ## Query Power Status, P003GS, 5e5030303347530d
@@ -861,6 +981,8 @@ sub fsp_devel_analyzeAnswer
 	}else {
 		
 		readingsSingleUpdate($hash,"1_communication",$hash->{helper}{received_hex},1);
+		readingsSingleUpdate($hash,"1_comm_ascii",$order . "_" . $data,1);
+	
 	}
 
 	
@@ -877,6 +999,61 @@ sub fsp_devel_analyzeAnswer
 =pod
 =begin html
 
+<ul>
+<a name="energy_distribution"></a>
+<li><b>energy_distribution</b>
+<ul>
+<code>
+set &lt;device&gt; energy_distribution <command>
+</code><br>
+Sendet das angegebene Kommando an den Wechselrichter. <br>
+folgende Kommandos sind verfügbar: 
+charge_battery_enable,
+AC_charge_battery_enable,
+feed_to_utility_enable,
+discharge_to_loads_pv_available_enable,
+discharge_to_loads_pv_UNavailable_enable,
+discharge_to_grid_pv_available_enable 
+	speist mit maximaler Power ein, PV wird komplett verwendet, rest kommt aus der Batterie.
+discharge_to_loads_pv_UNavailable_enable,
+	vermutlich wird auch hier mit voller Leistung eingespeist, bis die Batterie leer ist.
+Q_U_derating_enable,
+charge_battery_disable,
+AC_charge_battery_disable,
+feed_to_utility_disable,
+discharge_to_loads_pv_available_disable,
+discharge_to_loads_pv_UNavailable_disable,
+discharge_to_grid_pv_available_disable,
+discharge_to_loads_pv_UNavailable_disable,
+Q_U_derating_disable
+
+</ul>
+</li>
+</ul>
+<br>
+
+
+
+
+
+
+<ul>
+<a name="cmd"></a>
+<li><b>cmd</b>
+<ul>
+<code>
+set &lt;device&gt; cmd <command>
+</code><br>
+Sendet das angegebene Kommando an den Wechselrichter. <br>
+Das Kommando muss wie folgt aufgebaut sein: <br>
+<5e> ascii2hex(P003PS) <0d><br>
+ergibt in diesem Falle:<br> 
+"5e5030303350530d"<br>
+</ul>
+</li>
+</ul>
+<br>
+
 
 <ul>
 <a name="machine_model"></a>
@@ -885,9 +1062,14 @@ sub fsp_devel_analyzeAnswer
 <code>
 set &lt;device&gt; machine_model
 </code><br>
-Setzt den aktuellen Modus. 58= 4105 Hybrid; 108=4105 Grid<br>
-Befehl: <i>P003DM</i>
-Befehl: <i>S006DMnnn</i>
+Setzt den aktuellen Modus. 058= 4105 Hybrid; 108=4105 Grid<br>
+set <i>S006DMnnn</i>
+setzt den Modus
+
+get <i>P003DM</i>
+liest den aktuellen Modus aus
+Die Antwort ist aufgebaut: 
+D006nnn
 </ul>
 </li>
 </ul>
