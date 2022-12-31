@@ -129,10 +129,10 @@ sub jkbms_Define
 	    DevIo_CloseDev($hash);
     }
     Log3( $name, 4, "jkbms DevIO_OpenDev_Define" . __LINE__ );
-    readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
-    readingsSingleUpdate($hash, "1_version", "1",1); 
+    ## readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
+    ##readingsSingleUpdate($hash, "1_version", "1",1); 
     
-    InternalTimer( gettimeofday() + 10, 'jkbms_sendRequests', $hash );
+    ## InternalTimer( gettimeofday() + 10, 'jkbms_sendRequests', $hash );
     return DevIo_OpenDev( $hash, 0, "jkbms_DoInit" );
 ##}}}
 }
@@ -212,18 +212,18 @@ sub jkbms_Set
 ##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg ";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd requestall";
     my $ret;
+    my $platzhalter;
     Log3( $name, 4, "jkbms argument $a[1] _Line: " . __LINE__ );
+    ##	my $nop = AttrVal($name,"nop",0);
+    ##	my $proto = AttrVal($name,"protocol","none");
+
+	##Log3( $name, 4, "jkbms pre: n:$nop p:$proto _Line: " . __LINE__ );
     if ( $a[1] eq '?' )
     {
         Log3( $name, 4, "jkbms argument question _Line: " . __LINE__ );
         return $usage;
-    }elsif(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
-    	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
-    	return;
-	}elsif ( $a[1] eq 'sendRequests'){
-	    jkbms_sendRequests($hash);
     }elsif ( $a[1] eq 'reopen' )
     {
     	RemoveInternalTimer($hash);
@@ -254,43 +254,13 @@ sub jkbms_Set
 	InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
     }elsif($a[1] eq "cmd"){
             Log3( $name, 1, "jkbms_Set  cmd=$a[2] _Line: " . __LINE__ );
-	    my $val = jkbms_addChecksum($hash, $a[2]);
-            Log3( $name, 1, "jkbms_Set  cmd=$a[2], return= $val _Line: " . __LINE__ );
-    }elsif($a[1] eq "speed"){
-            my $speed;
-	    if($a[2] ==1200){
-		$speed = "01";
-	}elsif($a[2] ==2400){
-		$speed = "02";
-	}elsif($a[2] ==4800){
-		$speed = "03";
-	}
-	##	'COMMRATE' => "20014691020203xxxx"        ## set communication rate; 3.4
-	my $cmd = "20014691E002" . $speed; 
-	    Log3( $name, 1, "jkbms_Set  cmd=$cmd _Line: " . __LINE__ );
-	    my $val = jkbms_addChecksum($hash, $cmd);
-            Log3( $name, 1, "jkbms_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
-	    my $key = "SPEED";
-            Log3( $name, 1, "jkbms_Set push:  val=$val, key=$key _Line: " . __LINE__ );
-    		return "Befehl in Modul disabled, weil zu gefährlich";
-	    push( @{ $hash->{actionQueue} }, $key );
-	    push( @{ $hash->{actionQueue} }, $val );
-    }elsif($a[1] eq "SoftwareVersion"){
-        my $cmd = "20014696C0040201";    
-	    Log3( $name, 1, "jkbms_Set  cmd=$cmd _Line: " . __LINE__ );
-	    my $key = "SW_VER";
-	    my $val = jkbms_addChecksum($hash, $cmd);
-            Log3( $name, 1, "jkbms_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
-	    push( @{ $hash->{actionQueue} }, $key );
-	    push( @{ $hash->{actionQueue} }, $val );
-    }elsif($a[1] eq "SoftwareVersion2"){
-        my $cmd = "20024696C0040201";    
-	    Log3( $name, 1, "jkbms_Set  cmd=$cmd _Line: " . __LINE__ );
-	    my $key = "SW_VER";
-	    my $val = jkbms_addChecksum($hash, $cmd);
-            Log3( $name, 1, "jkbms_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
-	    push( @{ $hash->{actionQueue} }, $key );
-	    push( @{ $hash->{actionQueue} }, $val );
+	    	##my $val = jkbms_addChecksum($hash, $a[2]);
+        	DevIo_SimpleWrite( $hash, $a[2], 1 );
+		##Log3( $name, 1, "jkbms_Set  cmd=$a[2], return= $val _Line: " . __LINE__ );
+    }elsif($a[1] eq "requestall"){
+	my $cmd = "4E5700130000000006000000000000006800000129";
+    	readingsSingleUpdate($hash, "requestall", "$cmd",1); 
+       	DevIo_SimpleWrite( $hash, $cmd, 1 );
     }
 
     return;
@@ -423,6 +393,12 @@ sub jkbms_Read
 
     my $buf = DevIo_SimpleRead($hash);
     Log3( $name, 5, "jkbms buffer: $buf" );
+
+    	readingsSingleUpdate($hash, "readbuffer", "$buf",1); 
+    ####################################################
+    #just output the buffer for now
+    return;
+    ####################################################
     if ( !defined($buf) || $buf eq q{} ) ## check if buffer is not defined or empty
     {
 
@@ -433,7 +409,7 @@ sub jkbms_Read
 
     # each Message is starting by 0x7e and finishes with 0x0d.
     $hash->{helper}{recv} .= $buf;
-
+	
     Log3( $name, 5, "jkbms helper: $hash->{helper}{recv}" );
     ##my $hex_before = unpack "H*", $hash->{helper}{recv};
     ##Log3($name,5, "jkbms hex_before: $hex_before");
