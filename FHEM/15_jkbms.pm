@@ -90,7 +90,7 @@ sub jkbms_Initialize
     $hash->{ReadFn}   = "jkbms_Read";
     $hash->{ReadyFn}  = "jkbms_Ready";
     $hash->{AttrFn}   = "jkbms_Attr";
-    $hash->{AttrList} = "unknown_as_reading:yes,no protocol:RS232,RS485 nop:1,2,3,4,5,6,7,8 interval " . $readingFnAttributes;
+    $hash->{AttrList} = "unknown_as_reading:yes,no interval " . $readingFnAttributes;
     
     $hash->{helper}{value}           = q{};
     $hash->{helper}{key}             = q{};
@@ -212,14 +212,10 @@ sub jkbms_Set
 ##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd requestall";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd requestall activate";
     my $ret;
     my $platzhalter;
     Log3( $name, 4, "jkbms argument $a[1] _Line: " . __LINE__ );
-    ##	my $nop = AttrVal($name,"nop",0);
-    ##	my $proto = AttrVal($name,"protocol","none");
-
-	##Log3( $name, 4, "jkbms pre: n:$nop p:$proto _Line: " . __LINE__ );
     if ( $a[1] eq '?' )
     {
         Log3( $name, 4, "jkbms argument question _Line: " . __LINE__ );
@@ -241,7 +237,7 @@ sub jkbms_Set
             $ret = DevIo_OpenDev( $hash, 1, "jkbms_DoInit" );
             sleep 1;
         }
-	InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
+	##InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
         return "device opened";
     } elsif ( $a[1] eq "reset" )
     {
@@ -250,15 +246,31 @@ sub jkbms_Set
         $hash->{helper}{key}   = q{}; # empty string
         @{ $hash->{actionQueue} } = (); # empty array
         Log3( $name, 1, "jkbms_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__ );
-    	readingsSingleUpdate($hash, "1_status", "starting sendRequests",1); 
-	InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
+	##	readingsSingleUpdate($hash, "1_status", "starting sendRequests",1); 
+	##InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
     }elsif($a[1] eq "cmd"){
             Log3( $name, 1, "jkbms_Set  cmd=$a[2] _Line: " . __LINE__ );
 	    	##my $val = jkbms_addChecksum($hash, $a[2]);
         	DevIo_SimpleWrite( $hash, $a[2], 1 );
 		##Log3( $name, 1, "jkbms_Set  cmd=$a[2], return= $val _Line: " . __LINE__ );
+    }elsif($a[1] eq "activate"){
+	my $cmd = "4E5700130000000001030000000000006800000124";
+	##4E57
+	##0013
+	##0000
+	##0000
+	##06
+	##0000
+	##0000
+	##0000
+	##0068
+	##0000
+	##0124";
+    	readingsSingleUpdate($hash, "activate", "$cmd",1); 
+       	DevIo_SimpleWrite( $hash, $cmd, 1 );
     }elsif($a[1] eq "requestall"){
-	my $cmd = "4E5700130000000006000000000000006800000129";
+	    my $cmd = "4E5700130000000006030000000000006800000129";
+	    ##my $cmd = "344535373030313330303030303030303031303330303030303030303030303036383030303030313239";
     	readingsSingleUpdate($hash, "requestall", "$cmd",1); 
        	DevIo_SimpleWrite( $hash, $cmd, 1 );
     }
@@ -337,6 +349,7 @@ return;
 #########################
 sub jkbms_sendRequests
 {
+return;
 ##{{{
     my $hash        = shift // return 'Not enough Arguments';
     my $name        = $hash->{NAME};
