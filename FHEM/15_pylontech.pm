@@ -155,7 +155,7 @@ sub pylontech_Ready
     my ($hash) = @_;
     my $name = $hash->{NAME};
     $hash->{helper}{newconn} = 'true';    ## remind the new connection and ask for number of packs
-    return DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
+    return DevIo_OpenDev( $hash, 1, undef ) if ( $hash->{STATE} eq "disconnected");
 ##}}}
 }
 ###################################
@@ -202,7 +202,6 @@ sub pylontech_Attr
     $hash->{helper}{$attrName} = $attrValue;
     
     Log3( $name, 1, "pylontech attr $attrName $attrValue _Line: " . __LINE__ );
-    Log3( $name, 1, "pylontech attr $hash->{helper}{nop} _Line: " . __LINE__ );
  return;
 ##}}}
 }
@@ -212,7 +211,7 @@ sub pylontech_Set
 ##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg ";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg showError ";
     my $ret;
     Log3( $name, 4, "pylontech argument $a[1] _Line: " . __LINE__ );
     if ( $a[1] eq '?' )
@@ -220,9 +219,11 @@ sub pylontech_Set
         Log3( $name, 4, "pylontech argument question _Line: " . __LINE__ );
         return $usage;
     }elsif(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
-    	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
+	my $proto =  AttrVal($name,"protocol","none"); 
+    	my $nops = AttrVal($name,"nop",0) ;
+	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol: $proto and/or nop: $nops",1); 
     	return;
-	}elsif ( $a[1] eq 'sendRequests'){
+    }elsif ( $a[1] eq 'sendRequests'){
 	    pylontech_sendRequests($hash);
     }elsif ( $a[1] eq 'reopen' )
     {
@@ -235,12 +236,12 @@ sub pylontech_Set
         }
         Log3( $name, 1, "pylontech_Set  Device is closed, trying to open Line: " . __LINE__ );
         $ret = DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
-        while ( !DevIo_IsOpen($hash) )
+        if ( !DevIo_IsOpen($hash) )
         {
-            Log3( $name, 1, "pylontech_Set  Device is closed, opening failed, retrying" . __LINE__ );
-            $ret = DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
-            sleep 1;
-        }
+            Log3( $name, 1, "pylontech_Set  Device is closed, opening failed, retrying Line: " . __LINE__ );
+		readingsSingleUpdate($hash, "1_status", " Device is closed, opening failed",1); 
+       		return "open failed"; 
+    	}
 	InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
         return "device opened";
     } elsif ( $a[1] eq "reset" )
@@ -291,6 +292,8 @@ sub pylontech_Set
             Log3( $name, 1, "pylontech_Set  cmd=$cmd, return= $val _Line: " . __LINE__ );
 	    push( @{ $hash->{actionQueue} }, $key );
 	    push( @{ $hash->{actionQueue} }, $val );
+    }elsif($a[1] eq "showError"){
+ 	return "this is an error";
     }
 
     return;
@@ -368,11 +371,13 @@ return;
 sub pylontech_sendRequests
 {
 ##{{{
+	
+    Log3 undef, 0, "pylontech ($name) - pylontech_sendRequests interval: $interval  Line: " . __LINE__;
     my $hash        = shift // return 'Not enough Arguments';
     my $name        = $hash->{NAME};
     my $aq_length   = @{ $hash->{actionQueue} };
     my $modo_length = $aq_length % 2;
-    my $interval    = AttrVal($name,"interval",0);
+    my $interval    = AttrVal($name,"interval",60);
     Log3 $name, 4, "pylontech ($name) - pylontech_sendRequests interval: $interval  Line: " . __LINE__;
     if(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
     	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
