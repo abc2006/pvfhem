@@ -372,7 +372,7 @@ sub pylontech_sendRequests
 {
 ##{{{
 	
-    Log3 undef, 0, "pylontech ($name) - pylontech_sendRequests interval: $interval  Line: " . __LINE__;
+    Log3 undef, 0, "pylontech - pylontech_sendRequests Line: " . __LINE__;
     my $hash        = shift // return 'Not enough Arguments';
     my $name        = $hash->{NAME};
     my $aq_length   = @{ $hash->{actionQueue} };
