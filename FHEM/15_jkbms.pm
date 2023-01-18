@@ -111,7 +111,7 @@ sub jkbms_Define
 
     if ( @a < 3 || @a > 5 )
     {
-        my $msg = "wrong syntax: define <name> jkbms <device>";
+        my $msg = "wrong syntax: define <name> jkbms <device> @115200";
         return $msg;
     }
     my $name   = $a[0];
@@ -129,10 +129,12 @@ sub jkbms_Define
 	    DevIo_CloseDev($hash);
     }
     Log3( $name, 4, "jkbms DevIO_OpenDev_Define" . __LINE__ );
-    ## readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
-    ##readingsSingleUpdate($hash, "1_version", "1",1); 
     
-    ## InternalTimer( gettimeofday() + 10, 'jkbms_sendRequests', $hash );
+    if(!IsDisabled($name) && AttrVal($name, "interval", "none") ne "none"){
+    	readingsSingleUpdate($hash, "1_status", "starting sendRequests in 10 Seconds",1); 
+    	readingsSingleUpdate($hash, "1_version", "1",1); 
+    	InternalTimer( gettimeofday() + 10, 'jkbms_sendRequest', $hash );
+	}
     return DevIo_OpenDev( $hash, 0, "jkbms_DoInit" );
 ##}}}
 }
@@ -201,8 +203,7 @@ sub jkbms_Attr
     my $hash = $defs{$name};
     $hash->{helper}{$attrName} = $attrValue;
     
-    Log3( $name, 1, "jkbms attr $attrName $attrValue _Line: " . __LINE__ );
-    Log3( $name, 1, "jkbms attr $hash->{helper}{nop} _Line: " . __LINE__ );
+    Log3( $name, 1, "jkbms ($name) attr $attrName $attrValue _Line: " . __LINE__ );
  return;
 ##}}}
 }
@@ -212,28 +213,28 @@ sub jkbms_Set
 ##{{{
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
-    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd requestall activate";
+    my $usage = "Unknown argument $a[1], choose one of reopen:noArg reset:noArg cmd _requestall activate";
     my $ret;
     my $platzhalter;
-    Log3( $name, 4, "jkbms argument $a[1] _Line: " . __LINE__ );
+    Log3( $name, 4, "jkbms  ($name) argument $a[1] _Line: " . __LINE__ );
     if ( $a[1] eq '?' )
     {
-        Log3( $name, 4, "jkbms argument question _Line: " . __LINE__ );
+        Log3( $name, 4, "jkbms  ($name) argument question _Line: " . __LINE__ );
         return $usage;
     }elsif ( $a[1] eq 'reopen' )
     {
     	RemoveInternalTimer($hash);
         if ( DevIo_IsOpen($hash) )
         {
-            Log3( $name, 1, "Device is open, closing ... Line: " . __LINE__ );
+            Log3( $name, 1, "D ($name) evice is open, closing ... Line: " . __LINE__ );
             DevIo_CloseDev($hash);
-            Log3( $name, 1, "jkbms Device closed Line: " . __LINE__ );
+            Log3( $name, 1, " ($name) jkbms Device closed Line: " . __LINE__ );
         }
-        Log3( $name, 1, "jkbms_Set  Device is closed, trying to open Line: " . __LINE__ );
+        Log3( $name, 1, "jkbms_Set   ($name) Device is closed, trying to open Line: " . __LINE__ );
         $ret = DevIo_OpenDev( $hash, 1, "jkbms_DoInit" );
         while ( !DevIo_IsOpen($hash) )
         {
-            Log3( $name, 1, "jkbms_Set  Device is closed, opening failed, retrying" . __LINE__ );
+            Log3( $name, 1, "jkbms_Set ($name) Device is closed, opening failed, retrying" . __LINE__ );
             $ret = DevIo_OpenDev( $hash, 1, "jkbms_DoInit" );
             sleep 1;
         }
@@ -245,14 +246,14 @@ sub jkbms_Set
         $hash->{helper}{value} = q{}; # empty string
         $hash->{helper}{key}   = q{}; # empty string
         @{ $hash->{actionQueue} } = (); # empty array
-        Log3( $name, 1, "jkbms_Set actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__ );
+        Log3( $name, 1, "jkbms_Set ($name) actionQueue is empty: @{$hash->{actionQueue}} Line:" . __LINE__ );
 	##	readingsSingleUpdate($hash, "1_status", "starting sendRequests",1); 
 	##InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
     }elsif($a[1] eq "cmd"){
-            Log3( $name, 1, "jkbms_Set  cmd=$a[2] _Line: " . __LINE__ );
+            Log3( $name, 1, "jkbms_Set ($name) cmd=$a[2] _Line: " . __LINE__ );
 	    	##my $val = jkbms_addChecksum($hash, $a[2]);
         	DevIo_SimpleWrite( $hash, $a[2], 1 );
-		##Log3( $name, 1, "jkbms_Set  cmd=$a[2], return= $val _Line: " . __LINE__ );
+		##Log3( $name, 1, "jkbms_Set   cmd=$a[2], return= $val _Line: " . __LINE__ );
     }elsif($a[1] eq "activate"){
 	my $cmd = "4E5700130000000001030000000000006800000124";
 	##4E57
@@ -268,10 +269,15 @@ sub jkbms_Set
 	##0124";
     	readingsSingleUpdate($hash, "activate", "$cmd",1); 
        	DevIo_SimpleWrite( $hash, $cmd, 1 );
-    }elsif($a[1] eq "requestall"){
+    }elsif($a[1] eq "_requestall"){
 	    my $cmd = "4E5700130000000006030000000000006800000129";
-	    ##my $cmd = "344535373030313330303030303030303031303330303030303030303030303036383030303030313239";
-    	readingsSingleUpdate($hash, "requestall", "$cmd",1); 
+    	my $var = pack("(H2)*", $cmd);
+    Log3( $name, 0, "jkbms ($name)  cmd $cmd Line: " . __LINE__ );
+    Log3( $name, 0, "jkbms ($name)  packed $var Line: " . __LINE__ );
+	    
+	    
+	    
+	   readingsSingleUpdate($hash, "requestall", "$cmd",1); 
        	DevIo_SimpleWrite( $hash, $cmd, 1 );
     }
 
@@ -285,114 +291,29 @@ sub jkbms_Get
     my ( $hash, @a ) = @_;
     my $name  = $hash->{NAME};
     my $usage = "Unknown argument $a[1], choose one of calcHex";
-    Log3( $name, 5, "jkbms argument $a[1]_Line: " . __LINE__ );
+    Log3( $name, 5, "jkbms ($name) argument $a[1]_Line: " . __LINE__ );
     if ( $a[1] eq '?' )
     {
-        Log3( $name, 5, "jkbms argument question_Line: " . __LINE__ );
+        Log3( $name, 5, "jkbms ($name) argument question_Line: " . __LINE__ );
         return $usage;
     }
     return;
 ##}}}
 }
 ############################################
-################################################################################
-# prepareRequests reiht die Requests in die ActionQueue ein
-################################################################################
-sub jkbms_fillQueue
+sub jkbms_sendRequest
 {
-##{{{
-    my $hash = shift // return 'Not enough Arguments';
-    my $name = $hash->{NAME};
-    my $nop = $hash->{helper}{nop} // '1';
-    Log3( $name, 4, "jkbms attr $hash->{helper}{nop} _Line: " . __LINE__ );
-	foreach my $key (keys %requests)
-	{
-		#create order
-		my $order = $requests{$key};
-    		Log3 $name, 4, "jkbms ($name) - jkbms_fillQueue key: $key ==> order: $order  Line: " . __LINE__;
-		foreach my $i (1..$nop)
-		{
-		my $out;
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue i: $i  Line: " . __LINE__;
-			if($hash->{helper}{protocol} eq "RS485"){
-				my $ad1 = $i + 1;
-				my $add = "0$ad1";
-    				Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue add: $add  Line: " . __LINE__;
-				$out = "20" . $add . "46" . $order . $add; 
-    				Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue out: $out  Line: " . __LINE__;
-			}elsif($hash->{helper}{protocol} eq "RS232"){
-				my $add = "0" . $i;
-    				Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue add: $add  Line: " . __LINE__;
-				$out = "200146" . $order . $add;
-    				Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue out: $out  Line: " . __LINE__;
-			}else{
-				return;
-			}
-		my $out_chk = jkbms_addChecksum($hash, $out);
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue out_checksum: $out_chk  Line: " . __LINE__;
-        	my $pushval = "7E" . unpack( "H*", $out_chk ) . "0D";
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue out_hex: $pushval  Line: " . __LINE__;
-	    	my $pushkey = $key . $i; 
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue pushkey: $pushkey  Line: " . __LINE__;
-		push( @{ $hash->{actionQueue} }, $pushkey );
-	    	push( @{ $hash->{actionQueue} }, $pushval );
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue pushed  Line: " . __LINE__;
-    		Log3 $name, 5, "jkbms ($name) - jkbms_fillQueue ActionQueue: @{ $hash->{actionQueue}}  Line: " . __LINE__;
-		}
-	}
-return;
-##}}}
+my ($hash, $value) = @_;
+my $name = $hash->{NAME};
+
+my $cmd = "4E5700130000000006030000000000006800000129";
+
+        Log3( $name, 5, "jkbms ($name) sendRequest sending cmd $cmd _Line: " . __LINE__ );
+	DevIo_SimpleWrite( $hash, $cmd, 1 );
+
+return; 
 }
-
-####################################
-# sendrequests schaut, ob in der actionQueue Befehle enthalten sind, falls ja, werden diese ausgeführt. Wenn nein, werden neue eingeladen.
-#########################
-sub jkbms_sendRequests
-{
-return;
-##{{{
-    my $hash        = shift // return 'Not enough Arguments';
-    my $name        = $hash->{NAME};
-    my $aq_length   = @{ $hash->{actionQueue} };
-    my $modo_length = $aq_length % 2;
-    my $interval    = AttrVal($name,"interval",0);
-    Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests interval: $interval  Line: " . __LINE__;
-    if(AttrVal($name,"nop",0) <=1 || AttrVal($name,"protocol","none") eq "none"){
-    	readingsSingleUpdate($hash, "1_status", "Module disabled due to missing Attributes protocol and/or nop",1); 
-    	Log3 $name, 0, "jkbms ($name) - jkbms_sendRequests Module disabled due to missing Attributes protocol and/or nop _Line: " . __LINE__;
-   return;
-   }
-    Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests length: $aq_length  Line: " . __LINE__;
-    Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests modolength: $modo_length  Line: " . __LINE__;
-    Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests ActionQueue: @{ $hash->{actionQueue}}  Line: " . __LINE__;
-    if ( $aq_length && !$modo_length )
-    {
-        # get new value/key pair
-        $hash->{helper}{value} = pop( @{ $hash->{actionQueue} } ) // "";
-        $hash->{helper}{key}   = pop( @{ $hash->{actionQueue} } ) // "";
-        Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests value: $hash->{helper}{value}  Line: " . __LINE__;
-        Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests key: $hash->{helper}{key}  Line: " . __LINE__;
-
-        $hash->{helper}{recv} = q{}; ## empty receiveBuffer
-
-        DevIo_SimpleWrite( $hash, $hash->{helper}{value}, 1 );
-	# readingsSingleUpdate($hash, "1_status", "sending $hash->{helper}{key}",1); 
-        # start an internal Timer as Watchdog and proceed to next command if no answer is received
-	InternalTimer( gettimeofday() + 10 + $interval, 'jkbms_sendRequests', $hash );
-    } else
-    {
-        #leere die ActionQueue
-        @{ $hash->{actionQueue} } = ();
-
-        Log3 $name, 4, "jkbms ($name) - jkbms_sendRequests aqlength: $aq_length  Line: " . __LINE__;
-        #fülle die Queue
-	jkbms_fillQueue($hash);
-        InternalTimer(gettimeofday()+ 0.01+ $interval, 'jkbms_sendRequests',$hash);
-    }
-    return;
-##}}}
-}
-#####################################
+################################################################################
 sub jkbms_Read
 {
 
@@ -400,617 +321,119 @@ sub jkbms_Read
     my ($hash) = @_;
     my $name = $hash->{NAME};
     readingsSingleUpdate( $hash, "1_status", "communication in progress", 1 );
-    Log3( $name, 5, "jkbms currently reading _Line:" . __LINE__ );
+    Log3( $name, 5, "jkbms ($name) currently reading _Line:" . __LINE__ );
 
     # read from serial device
-
     my $buf = DevIo_SimpleRead($hash);
-    Log3( $name, 5, "jkbms buffer: $buf" );
+    
+    $hash->{helper}{NEW} .= unpack("H*",$buf);	    
+    Log3( $name, 0, "jkbms ($name) NEW: $hash->{helper}{NEW}" );
 
-    	readingsSingleUpdate($hash, "readbuffer", "$buf",1); 
-    ####################################################
-    #just output the buffer for now
-    return;
     ####################################################
     if ( !defined($buf) || $buf eq q{} ) ## check if buffer is not defined or empty
     {
 
-        Log3( $name, 1, "jkbms Error while reading _Line:" . __LINE__ );
+        Log3( $name, 1, "jkbms ($name) Error while reading _Line:" . __LINE__ );
         $hash->{CONNECTION} = "failed";
         return "error";
     }
+    if($hash->{helper}{NEW} =~ m/4e57(.*?)680000/xms){
+	    Log3( $name, 0, "jkbms ($name) regex: $1" );
+	jkbms_analyze_answer($hash, $1);
+	$hash->{helper}{NEW}= q{};
+	  }
 
-    # each Message is starting by 0x7e and finishes with 0x0d.
-    $hash->{helper}{recv} .= $buf;
-	
-    Log3( $name, 5, "jkbms helper: $hash->{helper}{recv}" );
-    ##my $hex_before = unpack "H*", $hash->{helper}{recv};
-    ##Log3($name,5, "jkbms hex_before: $hex_before");
-    ## now we can modify the hex string ...
-    if ( $hash->{helper}{recv} =~ m/~(.*)\r/xms )
-    {
-        Log3( $name, 3, "jkbms receive hex:\n$1" );
-
-        ## decode data
-        my %receive;
-        $receive{'Ver'}  = substr( $1, 0, 2 );
-        $receive{'ADR'}  = substr( $1, 2, 2 );
-        $receive{'CID1'} = substr( $1, 4, 2 );    ## reverse-engineered. is always 46H. Not yet important.
-        $receive{'CID2'} = substr( $1, 6, 2 );
-        Log3( $name, 4, "jkbms ver: $receive{'Ver'} Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms ADR: $receive{'ADR'} Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms CID1: $receive{'CID1'} Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms CID2: $receive{'CID2'} Line:" . __LINE__ );
-        if ( $receive{'CID2'} != 0 )
-        {
-
-            Log3( $name, 5, "jkbms Error: $receive{'CID2'} Line:" . __LINE__ );
-            my $error;
-
-            my %cid2_errorcodes = (
-
-                # blah
-                '01' => 'Version Error',
-                '02' => 'CHKSUM Error',
-                '03' => 'LCHKSUM Error',
-                '04' => 'CID2 Invalidation Error',
-                '05' => 'Command Format Error',
-                '06' => 'Invalid Data Error',
-                '90' => 'Address Error',
-                '91' => 'Communication Error',
-            );
-            if ( defined( $receive{'CID2'} ) )
-            {
-                $error = $cid2_errorcodes{ $receive{'CID2'} };
-            }
-
-            readingsSingleUpdate( $hash, "_error", "$error", 1 );
-            Log3( $name, 5, "jkbms Error: $error Line:" . __LINE__ );
-            readingsSingleUpdate( $hash, "1_status", "communication failed. Proceeding", 1 );
-        } else
-        {
-
-            $receive{'LENHEX'} = substr( $1, 8, 4 );
-            Log3( $name, 4, "jkbms LENHEX: $receive{'LENHEX'} Line:" . __LINE__ );
-            $receive{'LEN'} = hex( substr( $1, 9, 3 ) );
-            Log3( $name, 4, "jkbms LEN: $receive{'LEN'} Line:" . __LINE__ );
-            if ( $receive{'LEN'} > 0 )
-            {
-                $receive{'INFO'} = substr( $1, 12, $receive{'LEN'} );
-                Log3( $name, 4, "jkbms INFO: $receive{'INFO'} Line:" . __LINE__ );
-                jkbms_analyze_answer( $hash, $receive{'INFO'} );
-            }
-        }
-
-    }
-
+	   Log3( $name, 0, "jkbms ($name) regex: done" );
     return;
 ##}}}
 }
-##########################################################################################
+
+
+#########################################################################################
 sub jkbms_analyze_answer
 {
-##{{{
+my ($hash, $value) = @_;
+my $name = $hash->{NAME};
 
-    my ( $hash, $value ) = @_;
-    my $name = $hash->{NAME};
-    my $cmd  = $hash->{helper}{key};
+	RemoveInternalTimer($hash);
+	my $SingleVoltages = substr($value, 18, 100);
+	# how many cells are transmitted, in hex
+	my $numberofcells = substr($value,20,2);
+	# change to dec in order to use for loop
+	$numberofcells = hex($numberofcells);
+	#divide by 3 (bytes) to get real number
+	$numberofcells = $numberofcells/3;
+	Log3( $name, 5, "jkbms ($name): numberofcells $numberofcells _Line: " . __LINE__ );
+	my @c = (1..$numberofcells);
+	my @singlevoltages;
+	for(@c){
+		Log3( $name, 5, "jkbms ($name): loop $_ _Line: " . __LINE__ );
+		my $start = $_*6;
+		my $volt = substr($SingleVoltages,$start,4);
+		Log3( $name, 5, "jkbms ($name): loop $_ start $start value $volt _Line: " . __LINE__ );
+		my $volt_dec = hex($volt)/1000;
+		Log3( $name, 5, "jkbms ($name): volt_dec $volt_dec _Line: " . __LINE__ );
+		readingsSingleUpdate($hash, "Cell_$_", $volt_dec,1);
+	}	
+	readingsBeginUpdate($hash);
+	Log3( $name, 5, "jkbms: SingleVoltages $SingleVoltages _Line: " . __LINE__ );
+	my $tempMOS = hex(substr($value, 120,4));
+	readingsBulkUpdate($hash, "tempMOS", $tempMOS,1);
+	my $temperature2 = hex(substr($value, 126,4));
+	readingsBulkUpdate($hash, "temp2", $temperature2,1);
+	my $temperature3 = hex(substr($value, 132,4));
+	readingsBulkUpdate($hash, "temp3", $temperature3,1);
 
-    ##readingsSingleUpdate($hash, "1_status", "receiving $value",1); 
-    # remove Watchdog-Timer
-    RemoveInternalTimer($hash);
-    my $success = "failed";
-    Log3( $name, 3, "jkbms analyzing cmd: $cmd _Line:" . __LINE__ );
-    Log3( $name, 4, "jkbms analyzing anyway _Line:" . __LINE__ );
+	my $total_battery_voltage = hex(substr($value, 138,4))/100;
+	readingsBulkUpdate($hash, "1_Spannung_total", $total_battery_voltage,1);
+	
+	## current is difficult: 
+	#highest Bit 0 means discharging, 1 means charging.
+	my $total_battery_current = hex(substr($value, 144,4));
+	if ($total_battery_current < 32768){
+		## discharging
+		$total_battery_current *= -0.01;
+		readingsBulkUpdate($hash, "1_Strom_total", $total_battery_current,1);
+	}elsif($total_battery_current >= 32768){
+		##charging
+		$total_battery_current -= 32768;
+		$total_battery_current *= 0.01;
 
-    if ( $value =~ m/NAK.*/xms )
-    {
-##{{{
-        Log3( $name, 4, "jkbms invalid Query, valid Answer. Aborting. _Line:" . __LINE__ );
-	#InternalTimer( gettimeofday() + 1, 'jkbms_sendRequests', $hash );
-        return;
-##}}}
-    }
-    if ( $cmd =~ m/SW_VER.*/xms )
-    {
-##{{{
-        Log3( $name, 4, "jkbms cmd: analyzing VERSION _Line:" . __LINE__ );
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "SW_Version",$value,1);
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    }
-    if ( $cmd =~ m/VERSION.*/xms )
-    {
-##{{{
-        Log3( $name, 4, "jkbms cmd: analyzing VERSION _Line:" . __LINE__ );
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "Version",$value,1);
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    }
-    if ( $cmd =~ m/PACK(\d)/xms )
-    {
-##{{{
+		readingsBulkUpdate($hash, "1_Strom_total", $total_battery_current,1);
+	}
+	readingsBulkUpdate($hash, "1_Strom_total_raw", substr($value, 136,20));
+	my $total_battery_power = $total_battery_current * $total_battery_voltage;
+	readingsBulkUpdate($hash, "1_Power_total", $total_battery_power,1);
+	my $total_battery_soc = int(hex(substr($value, 150,2)));
+	readingsBulkUpdate($hash, "1_SOC_total", $total_battery_soc,1);
 
-        Log3( $name, 4, "jkbms cmd: analyzing PACK _Line:" . __LINE__ );
-        ## get Pack-Number
-        Log3( $name, 4, "jkbms PackNumber = $1 _Line:" . __LINE__ );
+	my $temp_sensor_amount = hex(substr($value, 154,2));
+	#readingsBulkUpdate($hash, "1_SOC_total", $total_battery_soc,1);
 
-        my $recommChargVoltageLimit = hex( substr( $value, 2, 4 ) ) / 1000;
-        Log3( $name, 4, "jkbms recommChargVoltageLimit  = $recommChargVoltageLimit _Line:" . __LINE__ );
-        my $recommDischargeVoltageLimit = hex( substr( $value, 6, 4 ) ) / 1000;
-        Log3( $name, 4, "jkbms recommDischargeVoltageLimit = $recommDischargeVoltageLimit _Line:" . __LINE__ );
-        my $maxChargeCurrent = hex( substr( $value, 10, 4 ) );
-        Log3( $name, 4, "jkbms maxChargeCurrent  = $maxChargeCurrent _Line:" . __LINE__ );
-        my $maxDisChargeCurrent = hex( substr( $value, 14, 4 ) );
-        Log3( $name, 4, "jkbms maxDisChargeCurrent  = $maxDisChargeCurrent _Line:" . __LINE__ );
-        my $status = substr( $value, 18, 2 );
-        Log3( $name, 4, "jkbms Status = $status _Line:" . __LINE__ );
-        my $message;
-        my $bits = unpack( "B*", pack( "H*", $status ) );
+	my $cycles = hex(substr($value, 158,4));
+	readingsBulkUpdate($hash, "1_cycles", $cycles,1);
 
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "Charge immediately";
-            ##32 = charge immediately
-        }
+	my $total_cycle_capacity = hex(substr($value, 164,8));
+	readingsBulkUpdate($hash, "1_cycle_capa_total", $total_cycle_capacity,1);
+	my $energy_left = 280*3.2*16/1000*$total_battery_soc/100;
+	readingsBulkUpdate($hash, "1_kWh_available", $energy_left,1);
+	readingsEndUpdate($hash,1);	
+	my $intvl = AttrVal($name, "interval", "none"); 
+	if ($intvl eq "none"){
+    		readingsSingleUpdate( $hash, "1_status", "Interval-Attribute not set, working in single mode", 1 );
+	}elsif(IsDisabled($name)){
+    		readingsSingleUpdate( $hash, "1_status", "Module disabled", 1 );
+		return; 
+	}else{
+        	Log3( $name, 4, "jkbms ($name) - Interval set to $intvl, scheduling next run  _Line: " . __LINE__ );
+    		readingsSingleUpdate( $hash, "1_status", "waiting for next run", 1 );
+		InternalTimer( gettimeofday() + $intvl , 'jkbms_sendRequest', $hash );
+	}
+	return;	
 
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "discharge enabled";
-            ## 64 = discharge enable
-        }
 
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "Charge enabled";
-            ##128 = charge enable
-        }
-
-        Log3( $name, 5, "jkbms A = $message _Line:" . __LINE__ );
-        Log3( $name, 5, "jkbms B = $bits _Line:" . __LINE__ );
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "Pack_$1_recommChargeVoltageLimit",    $recommChargVoltageLimit,     1 );
-        readingsBulkUpdate( $hash, "Pack_$1_recommDischargeVoltageLimit", $recommDischargeVoltageLimit, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_maxChargeCurrent ",           $maxChargeCurrent,            1 );
-        readingsBulkUpdate( $hash, "Pack_$1_maxDisChargeCurrent ",        $maxDisChargeCurrent,         1 );
-        readingsBulkUpdate( $hash, "Pack_$1_general_status ",             $message,                     1 );
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    } elsif ( $cmd =~ m/CELL(\d)/xms )
-    {
-##{{{
-        Log3( $name, 4, "jkbms cmd: analyzing $cmd _Line:" . __LINE__ );
-
-        # get Pack-Number
-        Log3( $name, 4, "jkbms PackNumber = $1 _Line:" . __LINE__ );
-
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "Pack_$1_Anzahl_Zellen", hex( substr( $value, 4,  2 ) ),        1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle1",        hex( substr( $value, 6,  4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle2",        hex( substr( $value, 10, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle3",        hex( substr( $value, 14, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle4",        hex( substr( $value, 18, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle5",        hex( substr( $value, 22, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle6",        hex( substr( $value, 26, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle7",        hex( substr( $value, 30, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle8",        hex( substr( $value, 34, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle9",        hex( substr( $value, 38, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle10",       hex( substr( $value, 42, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle11",       hex( substr( $value, 46, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle12",       hex( substr( $value, 50, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle13",       hex( substr( $value, 54, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle14",       hex( substr( $value, 58, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Zelle15",       hex( substr( $value, 62, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Temperaturfuehler", substr( $value, 66, 2 ), 1 );
-        my $sensor = 0;
-
-        # loop through the temperatursensors. The Values are available at position 68,72,76,80,84 in the Data-String
-        foreach ( ( 68, 72, 76, 80, 84 ) )
-        {
-            Log3( $name, 4, "jkbms temploop foreach $_ _Line:" . __LINE__ );
-            $sensor++;
-            my $temp = ( hex( substr( $value, $_, 4 ) ) - 2731 ) / 10;
-            Log3( $name, 5, "jkbms temploop temp $temp _Line:" . __LINE__ );
-            if ( $temp > 0 && $temp < 100 )
-            {
-                readingsBulkUpdate( $hash, "Pack_$1_Temp$sensor", $temp, 1 );
-
-                Log3( $name, 5, "jkbms temploop update Pack_$1_Temp$sensor : $temp Part: $_ _Line:" . __LINE__ );
-            }
-        }
-
-        my $current =
-          unpack( 's', pack( 'S', hex( substr( $value, 88, 4 ) ) ) ) / 10;
-
-        readingsBulkUpdate( $hash, "Pack_$1_Strom", $current, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Spannung", hex( substr( $value, 92, 4 ) ) / 1000,     1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Ah_left",  hex( substr( $value, 96, 4 ) ) / 1000,     1 );
-        readingsBulkUpdate( $hash, "Pack_$1_SoC",      hex( substr( $value, 96, 4 ) ) / 1000 * 2, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_User_defined_hex", substr( $value, 100, 2 ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Ah_total", hex( substr( $value, 102, 4 ) ) / 1000, 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_cycle",    hex( substr( $value, 106, 4 ) ),        1 );
-
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms ($name) - jkbms_analyze_answer aktualisiere totals. Line: " . __LINE__ );
-        jkbms_calcTotal($hash);
-
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    } elsif ( $cmd =~ m/WARN(\d)/xms )
-    {
-##{{{
-        Log3( $name, 4, "jkbms cmd: analysiere WARN _Line:" . __LINE__ );
-
-        # get Pack-Number
-        Log3( $name, 4, "jkbms PackNummer = $1 _Line:" . __LINE__ );
-
-        readingsBeginUpdate($hash);
-
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle1",       hex( substr( $value, 6,  2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle2",       hex( substr( $value, 8,  2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle3",       hex( substr( $value, 10, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle4",       hex( substr( $value, 12, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle5",       hex( substr( $value, 14, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle6",       hex( substr( $value, 16, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle7",       hex( substr( $value, 18, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle8",       hex( substr( $value, 20, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle9",       hex( substr( $value, 22, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle10",      hex( substr( $value, 24, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle11",      hex( substr( $value, 26, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle12",      hex( substr( $value, 28, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle13",      hex( substr( $value, 30, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle14",      hex( substr( $value, 32, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Zelle15",      hex( substr( $value, 34, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Anzahl_Temp",  hex( substr( $value, 36, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Temp1",        hex( substr( $value, 38, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Temp2",        hex( substr( $value, 40, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Temp3",        hex( substr( $value, 42, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Temp4",        hex( substr( $value, 44, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Temp5",        hex( substr( $value, 46, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_LadeStrom",    hex( substr( $value, 48, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Spannung",     hex( substr( $value, 50, 2 ) ), 1 );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_EntladeStrom", hex( substr( $value, 52, 2 ) ), 1 );
-        my $message = q{}; # create empty variable
-        my $bits    = q{}; # create empty variable
-        $bits = unpack( "B*", pack( "H*", substr( $value, 54, 2 ) ) );
-
-        if ( substr( $bits, 7, 1 ) == 1 )
-        {
-            $message .= "OverVoltage";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 6, 1 ) == 1 )
-        {
-            $message .= "Cell lower-limit-voltage";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 5, 1 ) == 1 )
-        {
-            $message .= "Charge overcurrent";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 4, 1 ) == 1 )
-        {
-            $message .= "intentionally blank";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 3, 1 ) == 1 )
-        {
-            $message .= "Discharge overcurrent";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "Discharge Temperature Protection";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "Charge Temperature protection";
-            ## 64 = discharge enable
-        }
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "Pack Undervoltage";
-            ##128 = charge enable
-        }
-        Log3( $name, 4, "jkbms W1A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms W1B = $bits _Line:" . __LINE__ );
-
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Status1", $bits . ':' . $message, 1 );
-        $message = q{}; # empty $message for the next part
-	# fill in bit pattern of the next part
-	$bits =
-          substr( unpack( "B*", pack( "H*", substr( $value, 56, 2 ) ) ), 4 );
-        if ( substr( $bits, 3, 1 ) == 1 )
-        {
-            $message .= "Use the Pack Power ";
-            ##32 = charge immediately
-        }
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "DFET ";
-            ##32 = charge immediately
-        }
-
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "CFET ";
-            ## 64 = discharge enable
-        }
-
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "PreFET ";
-            ##128 = charge enable
-        }
-
-        Log3( $name, 4, "jkbms A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms B = $bits _Line:" . __LINE__ );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Status2", $bits . ":" . $message, 1 );
-        $message = q{}; # empty $message for the next part
-	# fill in bit pattern of the next part
-        $bits = unpack( "B*", pack( "H*", substr( $value, 58, 2 ) ) );
-        if ( substr( $bits, 7, 1 ) == 1 )
-        {
-            $message .= "Buzzer";
-            ##32 =
-        }
-        if ( substr( $bits, 6, 1 ) == 1 )
-        {
-            $message .= "int blank";
-            ##32 =
-        }
-        if ( substr( $bits, 5, 1 ) == 1 )
-        {
-            $message .= "int blank";
-            ##32 =
-        }
-        if ( substr( $bits, 4, 1 ) == 1 )
-        {
-            $message .= "Fully Charged";
-            ##32 =
-        }
-        if ( substr( $bits, 3, 1 ) == 1 )
-        {
-            $message .= "int blank";
-            ##32 =
-        }
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "Startup-Heater";
-            ##32 =
-        }
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "Effective Discharge Current";
-            ## 64 = discharge enable
-        }
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "Effective Charge Current";
-            ##128 = charge enable
-        }
-
-        Log3( $name, 4, "jkbms A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms B = $bits _Line:" . __LINE__ );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Status3", $bits . ":" . $message, 1 );
-        $message = q{}; # empty $message for the next part
-	# fill in bit pattern of the next part
-        $bits = unpack( "B*", pack( "H*", substr( $value, 60, 2 ) ) );
-        if ( substr( $bits, 7, 1 ) == 1 )
-        {
-            $message .= "Check Cell 1";
-            ##32 =
-        }
-        if ( substr( $bits, 6, 1 ) == 1 )
-        {
-            $message .= "Check Cell 2";
-            ##32 =
-        }
-        if ( substr( $bits, 5, 1 ) == 1 )
-        {
-            $message .= "Check Cell 3";
-            ##32 = 3
-        }
-        if ( substr( $bits, 4, 1 ) == 1 )
-        {
-            $message .= "Check Cell 4";
-            ##32 =
-        }
-        if ( substr( $bits, 3, 1 ) == 1 )
-        {
-            $message .= "Check Cell 5";
-            ##32 =
-        }
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "Check Cell 6";
-            ##32 =
-        }
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "Check Cell 7";
-            ## 64 = discharge enable
-        }
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "Check Cell 8";
-            ##128 =
-        }
-
-        Log3( $name, 4, "jkbms A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms B = $bits _Line:" . __LINE__ );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Status4", $bits . ":" . $message, 1 );
-        $message = q{}; # empty $message for the next part
-	# fill in bit pattern of the next part
-        $bits = unpack( "B*", pack( "H*", substr( $value, 62, 2 ) ) );
-        if ( substr( $bits, 7, 1 ) == 1 )
-        {
-            $message .= "Check Cell 9";
-            ##32 =
-        }
-        if ( substr( $bits, 6, 1 ) == 1 )
-        {
-            $message .= "Check Cell 10";
-            ##32 =
-        }
-        if ( substr( $bits, 5, 1 ) == 1 )
-        {
-            $message .= "Check Cell 11";
-            ##32 = 3
-        }
-        if ( substr( $bits, 4, 1 ) == 1 )
-        {
-            $message .= "Check Cell 12";
-            ##32 =
-        }
-        if ( substr( $bits, 3, 1 ) == 1 )
-        {
-            $message .= "Check Cell 13";
-            ##32 =
-        }
-        if ( substr( $bits, 2, 1 ) == 1 )
-        {
-            $message .= "Check Cell 14";
-            ##32 =
-        }
-        if ( substr( $bits, 1, 1 ) == 1 )
-        {
-            $message .= "Check Cell 15";
-            ## 64 = discharge enable
-        }
-        if ( substr( $bits, 0, 1 ) == 1 )
-        {
-            $message .= "Check Cell 16";
-            ##128 =
-        }
-
-        Log3( $name, 4, "jkbms A = $message _Line:" . __LINE__ );
-        Log3( $name, 4, "jkbms B = $bits _Line:" . __LINE__ );
-        readingsBulkUpdate( $hash, "Pack_$1_Warn_Status5", $bits . ":" . $message, 1 );
-        $message = q{};
-
-        readingsEndUpdate( $hash, 1 );
-
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    } elsif ( $cmd eq "XXX" )
-    {
-##{{{
-        Log3( $name, 4, "jkbms cmd: analysiere $cmd _Line:" . __LINE__ );
-        readingsBeginUpdate($hash);
-        readingsBulkUpdate( $hash, "XXX", $value, 1 );
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    } else
-    {
-##{{{
-        Log3( $name, 1, "jkbms cmd " . $cmd . " not implemented yet, putting value in _devel<nr>, Line: " . __LINE__ );
-        readingsBeginUpdate($hash);
-        Log3( $name, 1, "jkbms cmd  $cmd unknown" );
-        if ( AttrVal( $name, "unknown_as_reading", 0 ) eq "yes" )
-        {
-            Log3( $name, 1, "putting $value in _devel" );
-            readingsBulkUpdate( $hash, "_devel", $value, 1 );
-        }
-
-        readingsEndUpdate( $hash, 1 );
-        Log3( $name, 4, "jkbms $cmd successful _Line:" . __LINE__ );
-        $success = "success";
-##}}}
-    }
-
-    Log3( $name, 4, "jkbms analyze ready. success: $success _Line:" . __LINE__ );
-    if ( $success eq "success" )
-    {
-        $hash->{CONNECTION}    = "established";
-        $hash->{helper}{key}   = "";
-        $hash->{helper}{value} = "";
-        Log3( $name, 3, "jkbms ($name) - Transmission finished _Line:" . __LINE__ );
-    }
-    Log3( $name, 3, "jkbms ($name) - calling sendRequests _Line:" . __LINE__ );
-    InternalTimer( gettimeofday() + 0.1, 'jkbms_sendRequests', $hash );
-    return;
-##}}}
 }
-##########################################
-sub jkbms_calcTotal
-{
-##{{{
-
-    my ($hash) = @_;
-    my $name = $hash->{NAME};
-    my $numberOfPacks  = $hash->{helper}{nop} // 1;
-    my $Ah_left        = 0;
-    my $Ah_total       = 0;
-    my $U_total        = 0;
-    my $I_total        = 0;
-    my $P_total        = 0;
-    my $T_total        = 0;
-    my $soc_total      = 0;
-    my $kWh_left_total = 0;
-    my $chg_time_left  = 0;
-    readingsBeginUpdate($hash);
-
-    for ( my $i = 1; $i < $numberOfPacks + 1; $i++ )
-    {
-        $U_total = $U_total + ReadingsNum( $name, "Pack_" . $i . "_Spannung", 0 );
-        $I_total = $I_total + ReadingsNum( $name, "Pack_" . $i . "_Strom",    0 );
-        $Ah_total = $Ah_total + ReadingsNum( $name, "Pack_" . $i . "_Ah_total", 0 );
-        $Ah_left = $Ah_left + ReadingsNum( $name, "Pack_" . $i . "_Ah_left", 0 );
-        for ( my $k = 1; $k < 6; $k++ )
-        {
-            $T_total += ReadingsNum( $name, "Pack_" . $i . "_Temp" . $k, 0 );
-        }
-    }
-    $T_total        = int( 10 *   ( $T_total / $numberOfPacks / 5 ) ) / 10;
-    $U_total        = int( 1000 * ( $U_total / $numberOfPacks ) ) / 1000;
-    $kWh_left_total = int( 10 *   ( $Ah_left * $U_total / 1000 ) ) / 10;
-    $P_total        = int( $U_total * $I_total );
-    Log3( $name, 5, "jkbms ($name) - Ah_left: $Ah_left " . __LINE__ );
-    Log3( $name, 5, "jkbms ($name) - Ah_total: $Ah_total " . __LINE__ );
-    if (   defined($Ah_left)
-        && $Ah_left > 0
-        && defined($Ah_total)
-        && $Ah_total > 0 )
-    {
-        my $var1 = ( 100 * $Ah_left ) / $Ah_total;
-        Log3( $name, 5, "jkbms ($name) - soc total calculation: $var1 " . __LINE__ );
-        $soc_total = int( 10 * $var1 ) / 10;
-        Log3( $name, 5, "jkbms ($name) - soc total rounded: $soc_total " . __LINE__ );
-    }
-    ## verbleibende Ladezeit mit aktueller Leistung in Sekunden
-    if ($P_total > 0){
-    $chg_time_left =int((2.4 * $numberOfPacks - $kWh_left_total) * 1000 / $P_total * 3600);
-    } else {
-    $chg_time_left = "N/A";
-    }
-    readingsBulkUpdate( $hash, "1_kWh_BMS_left_total", $kWh_left_total );
-    readingsBulkUpdate( $hash, "1_Ah_BMS_total",       $Ah_total );
-    readingsBulkUpdate( $hash, "1_Ah_BMS_left",        $Ah_left );
-    readingsBulkUpdate( $hash, "1_SOC_BMS_total",      $soc_total );
-    readingsBulkUpdate( $hash, "1_Temperature_total",  $T_total );
-    readingsBulkUpdate( $hash, "1_Spannung_total",     $U_total );
-    readingsBulkUpdate( $hash, "1_Strom_total",        $I_total );
-    readingsBulkUpdate( $hash, "1_Power_total",        $P_total );
-    readingsBulkUpdate( $hash, "1_chargetime_left",    $chg_time_left );
-    readingsEndUpdate( $hash, 1 );
-    return;
-##}}}
-}
+##########################################################################################
 sub jkbms_addChecksum
 {
 ##{{{
@@ -1031,6 +454,7 @@ sub jkbms_addChecksum
 	return $order . $checksum;
 ##}}}
 }
+
 1;
 
 =pod
