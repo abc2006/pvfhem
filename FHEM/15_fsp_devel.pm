@@ -397,7 +397,7 @@ sub fsp_devel_Set($@){
 sub fsp_devel_Get($@){
 	my ($hash, @a) = @_;
 	my $name = $hash->{NAME};
-	my $usage = "Unknown argument $a[1], choose one of machine_model:noArg energy_distribution:noArg P003PI:noArg P003ID:noArg P004VFW:noArg P005VFW2:noArg P003MD:noArg P005PIRI:noArg P005FLAG:noArg P002T:noArg P003ET:noArg P004GOV:noArg P004GOF:noArg P005OPMP:noArg P005GPMP:noArg P006MPPTV:noArg P004LST:noArg P003SV:noArg P003DI:noArg P005BATS:noArg P003DM:noArg P004MAR:noArg P004CFS:noArg P005HECS:noArg P006GLTHV:noArg P004FET:noArg P003FT:noArg P005ACCT:noArg P005ACLT:noArg P006FPADJ:noArg P006FPPF:noArg P005AAPF:noArg P007EMINFO:noArg";
+	my $usage = "Unknown argument $a[1], choose one of machine_model:noArg energy_distribution:noArg P003PI:noArg P003ID:noArg P004VFW:noArg P005VFW2:noArg P003MD:noArg P005PIRI:noArg P005FLAG:noArg P002T:noArg P003ET:noArg P004GOV:noArg P004GOF:noArg P005OPMP:noArg P005GPMP:noArg P006MPPTV:noArg P004LST:noArg P003SV:noArg P003DI:noArg P005BATS:noArg P003DM:noArg P004MAR:noArg P004CFS:noArg P005HECS:noArg P006GLTHV:noArg P004FET:noArg P003FT:noArg P005ACCT:noArg P005ACLT:noArg P006FPADJ:noArg P006FPPF:noArg P005AAPF:noArg P007EMINFO:noArg P005VFWT:noArg";
 	Log3($name,5, "fsp_devel argument $a[1]_Line: " . __LINE__);
   	if ($a[1] eq "?"){
 	Log3($name,5, "fsp_devel argument get fragezeichen _Line: " . __LINE__);
