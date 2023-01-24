@@ -235,11 +235,18 @@ sub pylontech_Set
         }
         Log3( $name, 1, "pylontech_Set  Device is closed, trying to open Line: " . __LINE__ );
         $ret = DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
-        while ( !DevIo_IsOpen($hash) )
+        my $tries = 0;
+	while ( !DevIo_IsOpen($hash) && $tries < 10 )
         {
             Log3( $name, 1, "pylontech_Set  Device is closed, opening failed, retrying" . __LINE__ );
             $ret = DevIo_OpenDev( $hash, 1, "pylontech_DoInit" );
             sleep 1;
+	    $tries++;
+	    if($tries > 9){
+            Log3( $name, 1, "pylontech_Set  opening failed 10 times, aborting" . __LINE__ );
+		return "opening failed";    
+    	}
+
         }
 	InternalTimer( gettimeofday() + 1, 'pylontech_sendRequests', $hash );
         return "device opened";
